@@ -3,7 +3,7 @@ services:
     name: mon-assistant-ia
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app --workers 2 --timeout 120
+    startCommand: gunicorn app:app --workers 1 --threads 4 --timeout 120
     envVars:
       - key: GROQ_API_KEY
         sync: false

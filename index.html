@@ -156,6 +156,29 @@
     .btn-add-presta { padding: 6px 12px; background: #f0f0f0; color: #555; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; margin-top: 4px; }
     .btn-add-presta:hover { background: #e0e0e0; }
 
+    /* Agent Auto panel */
+    .btn-agent { padding: 7px 13px; background: #f0f0f0; color: #333; border: none; border-radius: 8px; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+    .btn-agent:hover { background: #e0e0e0; }
+    .btn-agent.active { background: #7c3aed; color: white; }
+    .agent-panel { display: none; border-bottom: 1px solid #eee; background: #fafafa; flex-shrink: 0; max-height: 55vh; overflow-y: auto; }
+    .agent-panel.visible { display: block; }
+    .agent-panel-body { padding: 14px 24px; }
+    .agent-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; margin-bottom: 14px; }
+    .agent-status-badge.actif { background: #dcfce7; color: #166534; }
+    .agent-status-badge.inactif { background: #fee2e2; color: #991b1b; }
+    .agent-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .agent-table th { text-align: left; font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .05em; padding: 6px 8px; border-bottom: 1px solid #eee; }
+    .agent-table td { padding: 8px 8px; border-bottom: 1px solid #f5f5f5; color: #333; vertical-align: middle; }
+    .agent-table tr:last-child td { border-bottom: none; }
+    .btn-run { padding: 4px 10px; background: #7c3aed; color: white; border: none; border-radius: 6px; font-size: 11px; cursor: pointer; white-space: nowrap; }
+    .btn-run:hover { background: #6d28d9; }
+    .btn-run:disabled { background: #ccc; cursor: not-allowed; }
+    .agent-log { margin-top: 14px; }
+    .agent-log-title { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+    .agent-log-item { font-size: 11px; color: #555; padding: 5px 8px; border-left: 2px solid #e0e0e0; margin-bottom: 4px; line-height: 1.4; }
+    .agent-log-item.ok { border-left-color: #10b981; }
+    .agent-log-item.err { border-left-color: #ef4444; }
+
     /* Conv Client panel */
     .btn-conv { padding: 7px 13px; background: #f0f0f0; color: #333; border: none; border-radius: 8px; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
     .btn-conv:hover { background: #e0e0e0; }
@@ -193,6 +216,7 @@
           <a href="/dashboard" class="btn-dash">📊 Dashboard</a>
           <button class="btn-devis" onclick="ouvrirDevis()">📄 Devis</button>
           <button class="btn-conv" id="btnConvToggle" onclick="toggleConv()">💬 Conv Client</button>
+          <button class="btn-agent" id="btnAgentToggle" onclick="toggleAgent()">🤖 Agent Auto</button>
           <button class="btn-design-toggle" id="btnDesignToggle" onclick="toggleDesign()">🎨 Design</button>
         </div>
       </div>
@@ -261,6 +285,32 @@
             <textarea id="v0CodeInput" placeholder="Colle ici le code que v0.dev a généré…" style="min-height:100px;"></textarea>
           </div>
           <button class="btn-indigo" id="btnConvertir" onclick="convertirEnLiquid()" style="width:100%;">🔄 Convertir en Liquid Shopify</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Agent Auto panel -->
+    <div class="agent-panel" id="agentPanel">
+      <div class="agent-panel-body">
+        <div id="agentStatusBadge" class="agent-status-badge inactif">⬤ Scheduler inactif</div>
+        <table class="agent-table">
+          <thead>
+            <tr>
+              <th>Tâche</th>
+              <th>Fréquence</th>
+              <th>Dernière exéc.</th>
+              <th>Prochaine exéc.</th>
+              <th>Statut</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="agentTableBody">
+            <tr><td colspan="6" style="text-align:center;color:#bbb;padding:16px;">Chargement…</td></tr>
+          </tbody>
+        </table>
+        <div class="agent-log">
+          <div class="agent-log-title">5 dernières actions automatiques</div>
+          <div id="agentLog"><div style="font-size:12px;color:#bbb;">Aucune exécution pour l'instant.</div></div>
         </div>
       </div>
     </div>
@@ -423,13 +473,103 @@ Clique sur 🎨 Design pour accéder aux workflows design :
       const btn   = document.getElementById("btnDesignToggle");
       panel.classList.toggle("visible");
       btn.classList.toggle("active");
-      // Ferme conv si ouvert
       document.getElementById("convPanel").classList.remove("visible");
       document.getElementById("btnConvToggle").classList.remove("active");
+      document.getElementById("agentPanel").classList.remove("visible");
+      document.getElementById("btnAgentToggle").classList.remove("active");
     }
 
     // ── Conv Client panel ─────────────────────────────────
     let analyseData = null;
+
+    // ── Agent Auto panel ─────────────────────────────────
+    async function toggleAgent() {
+      const panel = document.getElementById("agentPanel");
+      const btn   = document.getElementById("btnAgentToggle");
+      const opening = !panel.classList.contains("visible");
+      panel.classList.toggle("visible");
+      btn.classList.toggle("active");
+      // Ferme les autres panneaux
+      document.getElementById("convPanel").classList.remove("visible");
+      document.getElementById("btnConvToggle").classList.remove("active");
+      document.getElementById("designPanel").classList.remove("visible");
+      document.getElementById("btnDesignToggle").classList.remove("active");
+      if (opening) await chargerStatusAgent();
+    }
+
+    async function chargerStatusAgent() {
+      try {
+        const res  = await fetch("/agent/status");
+        const data = await res.json();
+
+        // Badge statut
+        const badge = document.getElementById("agentStatusBadge");
+        if (data.scheduler_actif) {
+          badge.className = "agent-status-badge actif";
+          badge.textContent = "⬤ Scheduler actif";
+        } else {
+          badge.className = "agent-status-badge inactif";
+          badge.textContent = "⬤ Scheduler inactif";
+        }
+
+        // Tableau des tâches
+        const tbody = document.getElementById("agentTableBody");
+        tbody.innerHTML = (data.taches || []).map(t => `
+          <tr>
+            <td><strong>${esc(t.nom)}</strong></td>
+            <td style="color:#888">${esc(t.frequence)}</td>
+            <td style="color:#888">${t.derniere_exec ? esc(t.derniere_exec.slice(0,16).replace('T',' ')) : '—'}</td>
+            <td style="color:#888">${t.prochaine_exec ? esc(t.prochaine_exec.slice(0,16).replace('T',' ')) : '—'}</td>
+            <td style="font-size:11px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+                title="${esc(t.dernier_statut)}">${esc(t.dernier_statut)}</td>
+            <td><button class="btn-run" onclick="lancerTache('${esc(t.id)}', this)">▶ Lancer</button></td>
+          </tr>`).join("") || '<tr><td colspan="6" style="text-align:center;color:#bbb">Aucune tâche</td></tr>';
+
+        // Log des 5 dernières
+        const logEl = document.getElementById("agentLog");
+        const recent = (data.historique_recent || []).slice(0, 5);
+        logEl.innerHTML = recent.length ? recent.map(e => {
+          const ok = e.statut && e.statut.startsWith("✅");
+          return `<div class="agent-log-item ${ok ? 'ok' : 'err'}">
+            <strong>${esc(AGENT_NOMS[e.task] || e.task)}</strong> — ${esc(e.statut)}
+            <span style="float:right;color:#aaa">${esc(e.date.slice(0,16).replace('T',' '))}</span>
+          </div>`;
+        }).join("") : '<div style="font-size:12px;color:#bbb;">Aucune exécution pour l\'instant.</div>';
+      } catch(e) {
+        document.getElementById("agentTableBody").innerHTML =
+          `<tr><td colspan="6" style="color:#ef4444">Erreur : ${esc(e.message)}</td></tr>`;
+      }
+    }
+
+    const AGENT_NOMS = {
+      veille_app_store:      "Veille App Store",
+      rapport_boutiques:     "Rapport boutiques",
+      alerte_stock:          "Alerte stock",
+      analyse_avis_negatifs: "Analyse avis négatifs",
+    };
+
+    async function lancerTache(id, btn) {
+      btn.disabled = true;
+      btn.textContent = "⏳";
+      addMsg("user", `▶ Lancement manuel de la tâche : <strong>${esc(AGENT_NOMS[id] || id)}</strong>`, null, false);
+      const typing = addTyping("⚙️ Tâche en cours d'exécution…");
+      try {
+        const res  = await fetch(`/agent/run/${encodeURIComponent(id)}`, { method: "POST" });
+        const data = await res.json();
+        typing.remove();
+        if (data.erreur) {
+          addMsg("assistant", `❌ Erreur : ${esc(data.erreur)}`, "Agent Auto", false);
+        } else {
+          addMsg("assistant", `✅ Tâche <strong>${esc(AGENT_NOMS[id] || id)}</strong> terminée — ${esc(data.statut)}`, "Agent Auto", false);
+        }
+        await chargerStatusAgent();
+      } catch(e) {
+        typing.remove();
+        addMsg("assistant", `❌ Erreur : ${esc(e.message)}`, "Agent Auto", false);
+      }
+      btn.disabled = false;
+      btn.textContent = "▶ Lancer";
+    }
 
     function toggleConv() {
       const panel = document.getElementById("convPanel");
@@ -439,6 +579,9 @@ Clique sur 🎨 Design pour accéder aux workflows design :
       // Ferme design si ouvert
       document.getElementById("designPanel").classList.remove("visible");
       document.getElementById("btnDesignToggle").classList.remove("active");
+      // Ferme agent si ouvert
+      document.getElementById("agentPanel").classList.remove("visible");
+      document.getElementById("btnAgentToggle").classList.remove("active");
     }
 
     function switchConvTab(n) {

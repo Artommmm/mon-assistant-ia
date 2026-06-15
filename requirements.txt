@@ -7,3 +7,4 @@ notion-client>=2.2.0
 ShopifyAPI>=12.6.0
 reportlab>=4.2.0
 gunicorn>=21.2.0
+APScheduler==3.10.4

@@ -2,8 +2,9 @@ from flask import Flask, request, jsonify, send_from_directory, send_file
 from groq import Groq
 from tavily import TavilyClient
 from dotenv import load_dotenv
-import json, os, datetime, subprocess, tempfile, base64, urllib.parse, re, io
+import json, os, datetime, subprocess, tempfile, base64, urllib.parse, re, io, threading
 from concurrent.futures import ThreadPoolExecutor
+from apscheduler.schedulers.background import BackgroundScheduler
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import cm
@@ -361,37 +362,6 @@ def notion_ajouter_contenu(titre, contenu):
     except Exception as e:
         return f"❌ Erreur Notion : {str(e)}"
 
-def notion_ajouter_contenu(titre, contenu):
-    """Ajoute un bloc de contenu dans la page principale Notion."""
-    try:
-        notion.blocks.children.append(
-            notion_page_id,
-            children=[
-                {
-                    "object": "block",
-                    "type": "heading_2",
-                    "heading_2": {
-                        "rich_text": [{"type": "text", "text": {"content": titre}}]
-                    }
-                },
-                {
-                    "object": "block",
-                    "type": "paragraph",
-                    "paragraph": {
-                        "rich_text": [{"type": "text", "text": {"content": contenu[:2000]}}]
-                    }
-                },
-                {
-                    "object": "block",
-                    "type": "divider",
-                    "divider": {}
-                }
-            ]
-        )
-        return f"✅ Contenu ajouté dans ta page Notion"
-    except Exception as e:
-        return f"❌ Erreur Notion : {str(e)}"
-    
 def gmail_envoyer(destinataire, sujet, corps):
     """Envoie un vrai email via Gmail."""
     try:
@@ -498,6 +468,278 @@ def shopify_lister_clients():
         return f"✅ Clients de ta boutique :\n{liste}"
     except Exception as e:
         return f"❌ Erreur Shopify : {str(e)}"
+
+# ── Notion Sync Intelligente ─────────────────────────────
+
+SECTIONS_PROJET = {
+    "brief":      "📋 Brief client",
+    "specs":      "⚙️ Specs techniques",
+    "roadmap":    "🗺️ Roadmap",
+    "email":      "💬 Communications",
+    "devis":      "💰 Devis",
+    "historique": "📝 Historique",
+}
+
+
+def _trouver_page_enfant(titre_cible):
+    """Cherche une page enfant de la page principale par son titre (insensible à la casse)."""
+    try:
+        cursor = None
+        while True:
+            params = {"block_id": notion_page_id}
+            if cursor:
+                params["start_cursor"] = cursor
+            blocks = notion.blocks.children.list(**params)
+            for block in blocks.get("results", []):
+                if block["type"] == "child_page":
+                    titre_bloc = block.get("child_page", {}).get("title", "")
+                    if titre_bloc.strip().lower() == titre_cible.strip().lower():
+                        return block["id"]
+            if not blocks.get("has_more"):
+                break
+            cursor = blocks.get("next_cursor")
+    except Exception:
+        pass
+    return None
+
+
+def _mettre_a_jour_index_notion(nom_projet, page_projet_id):
+    """Crée ou met à jour la page INDEX Notion avec une ligne par projet."""
+    INDEX_TITRE = "🗂️ Index Projets"
+    try:
+        index_id = _trouver_page_enfant(INDEX_TITRE)
+        date_str = datetime.datetime.now().strftime("%d/%m/%Y")
+        page_url = f"https://www.notion.so/{page_projet_id.replace('-', '')}"
+        ligne = f"• {nom_projet} | En cours | {date_str} | {page_url}"
+
+        if not index_id:
+            notion.pages.create(
+                parent={"page_id": notion_page_id},
+                properties={"title": {"title": [{"type": "text", "text": {"content": INDEX_TITRE}}]}},
+                children=[
+                    {"object": "block", "type": "heading_1",
+                     "heading_1": {"rich_text": [{"type": "text", "text": {"content": INDEX_TITRE}}]}},
+                    {"object": "block", "type": "paragraph",
+                     "paragraph": {"rich_text": [{"type": "text", "text": {"content": "Projet | Statut | Date | Lien"}}]}},
+                    {"object": "block", "type": "divider", "divider": {}},
+                    {"object": "block", "type": "paragraph",
+                     "paragraph": {"rich_text": [{"type": "text", "text": {"content": ligne}}]}},
+                ]
+            )
+        else:
+            notion.blocks.children.append(
+                index_id,
+                children=[{"object": "block", "type": "paragraph",
+                            "paragraph": {"rich_text": [{"type": "text", "text": {"content": ligne}}]}}]
+            )
+    except Exception:
+        pass
+
+
+def notion_sync_projet(nom_projet, type_action, contenu):
+    """Trouve ou crée la page projet Notion et ajoute le contenu dans la bonne section."""
+    if not notion_page_id or not os.getenv("NOTION_TOKEN"):
+        return "⚠️ Notion non configuré"
+    try:
+        section_titre = SECTIONS_PROJET.get(type_action, "📝 Historique")
+        page_id = _trouver_page_enfant(nom_projet)
+
+        # Créer la page structurée si elle n'existe pas
+        if not page_id:
+            children = []
+            for titre_section in SECTIONS_PROJET.values():
+                children.append({"object": "block", "type": "heading_2",
+                                  "heading_2": {"rich_text": [{"type": "text", "text": {"content": titre_section}}]}})
+                children.append({"object": "block", "type": "paragraph",
+                                  "paragraph": {"rich_text": [{"type": "text", "text": {"content": ""}}]}})
+            new_page = notion.pages.create(
+                parent={"page_id": notion_page_id},
+                properties={"title": {"title": [{"type": "text", "text": {"content": nom_projet}}]}},
+                children=children
+            )
+            page_id = new_page["id"]
+
+        # Ajouter le contenu avec en-tête de section horodaté
+        date_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+        blocs_texte = [contenu[i:i+1800] for i in range(0, len(contenu), 1800)]
+        blocks_to_add = [
+            {"object": "block", "type": "heading_3",
+             "heading_3": {"rich_text": [{"type": "text", "text": {"content": f"{section_titre} — {date_str}"}}]}}
+        ]
+        for bloc in blocs_texte:
+            blocks_to_add.append({"object": "block", "type": "paragraph",
+                                   "paragraph": {"rich_text": [{"type": "text", "text": {"content": bloc}}]}})
+        blocks_to_add.append({"object": "block", "type": "divider", "divider": {}})
+        notion.blocks.children.append(page_id, children=blocks_to_add)
+
+        _mettre_a_jour_index_notion(nom_projet, page_id)
+        return f"✅ Notion sync → '{nom_projet}' [{section_titre}]"
+    except Exception as e:
+        return f"❌ Erreur Notion sync : {e}"
+
+
+# ── Agent Autonome 24/7 ───────────────────────────────────
+
+AGENT_TASKS_META = {
+    "veille_app_store":      {"nom": "Veille App Store",           "frequence": "Lundi 08h00"},
+    "rapport_boutiques":     {"nom": "Rapport boutiques clients",  "frequence": "Lundi 09h00"},
+    "alerte_stock":          {"nom": "Alerte stock critique",      "frequence": "Toutes les 6h"},
+    "analyse_avis_negatifs": {"nom": "Analyse avis négatifs",      "frequence": "Mercredi 08h00"},
+}
+
+
+def _log_agent_execution(task_name, statut):
+    try:
+        memoire = charger_memoire()
+        memoire.setdefault("agent_executions", []).append({
+            "task": task_name,
+            "date": datetime.datetime.now().isoformat(),
+            "statut": statut
+        })
+        memoire["agent_executions"] = memoire["agent_executions"][-50:]
+        sauvegarder_memoire(memoire)
+    except Exception:
+        pass
+
+
+def veille_app_store():
+    """Tâche 1 : Veille App Store — lundi 8h."""
+    try:
+        semaine = datetime.datetime.now().isocalendar()[1]
+        r1 = tavily.search(query="new shopify apps 2025 trending", max_results=5, search_depth="basic")
+        r2 = tavily.search(query="shopify app store gaps opportunities 2025", max_results=5, search_depth="basic")
+        brut = ""
+        for r in r1.get("results", []) + r2.get("results", []):
+            brut += f"\n• {r['title']}\n{r['content'][:300]}\n"
+        reponse_llm = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": AGENTS["recherche"]["prompt"] + "\n" + CONTEXTE_SHOPIFY},
+                {"role": "user", "content": f"Identifie 3 opportunités d'apps Shopify depuis ces résultats:\n{brut}"}
+            ],
+            max_tokens=1500
+        )
+        analyse = reponse_llm.choices[0].message.content
+        memoire = charger_memoire()
+        memoire.setdefault("veille_hebdo", []).append(
+            {"date": datetime.datetime.now().isoformat(), "semaine": f"Semaine {semaine}", "analyse": analyse}
+        )
+        memoire["veille_hebdo"] = memoire["veille_hebdo"][-10:]
+        sauvegarder_memoire(memoire)
+        dest = os.getenv("GMAIL_ADDRESS", "")
+        if dest:
+            gmail_envoyer(dest, f"🔍 Veille App Store - Semaine {semaine}", analyse)
+        notion_sync_projet("Veille hebdomadaire", "historique", f"Semaine {semaine}\n\n{analyse}")
+        _log_agent_execution("veille_app_store", f"✅ Semaine {semaine}")
+    except Exception as e:
+        _log_agent_execution("veille_app_store", f"❌ {str(e)[:120]}")
+
+
+def rapport_boutiques():
+    """Tâche 2 : Rapport boutiques — lundi 9h."""
+    try:
+        shopify_init()
+        shop = shopify.Shop.current()
+        date_debut = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime("%Y-%m-%dT%H:%M:%S")
+        commandes = shopify.Order.find(limit=250, status="any", created_at_min=date_debut)
+        ca_semaine = sum(float(c.total_price) for c in commandes)
+        produits = shopify.Product.find(limit=250)
+        ruptures = []
+        for p in produits:
+            for v in p.variants:
+                stock = getattr(v, "inventory_quantity", None)
+                if stock is not None and stock <= 0:
+                    ruptures.append(f"{p.title} — {v.title}")
+        rapport = (
+            f"📊 RAPPORT HEBDOMADAIRE — {shop.name}\n"
+            f"Période : 7 derniers jours\n\n"
+            f"• Commandes : {len(commandes)}\n"
+            f"• CA : {ca_semaine:.2f} {shop.currency}\n"
+            f"• Produits en rupture : {len(ruptures)}\n"
+            + ("\nRuptures :\n" + "\n".join(f"  - {r}" for r in ruptures[:10]) if ruptures else "")
+        )
+        dest = os.getenv("GMAIL_ADDRESS", "")
+        if dest:
+            gmail_envoyer(dest, f"📊 Rapport hebdo - {shop.name}", rapport)
+        notion_sync_projet(f"Rapport {shop.name}", "historique", rapport)
+        _log_agent_execution("rapport_boutiques", f"✅ {len(commandes)} cmds / {ca_semaine:.0f}{shop.currency}")
+    except Exception as e:
+        _log_agent_execution("rapport_boutiques", f"❌ {str(e)[:120]}")
+
+
+def alerte_stock():
+    """Tâche 3 : Alerte stock critique — toutes les 6h."""
+    try:
+        shopify_init()
+        produits = shopify.Product.find(limit=250)
+        memoire = charger_memoire()
+        alertes = memoire.get("alertes_stock_envoyees", {})
+        now = datetime.datetime.now()
+        # Nettoyer les alertes > 24h
+        alertes = {k: v for k, v in alertes.items()
+                   if (now - datetime.datetime.fromisoformat(v)).total_seconds() < 86400}
+        nouvelles = 0
+        for p in produits:
+            for v in p.variants:
+                stock = getattr(v, "inventory_quantity", None)
+                if stock is not None and 0 < stock < 5:
+                    cle = f"{p.id}_{v.id}"
+                    if cle not in alertes:
+                        dest = os.getenv("GMAIL_ADDRESS", "")
+                        if dest:
+                            gmail_envoyer(dest,
+                                f"⚠️ Stock critique : {p.title}",
+                                f"Produit : {p.title}\nVariante : {v.title}\nStock : {stock} unité(s)\n\nRéapprovisionner rapidement.")
+                        alertes[cle] = now.isoformat()
+                        nouvelles += 1
+        memoire["alertes_stock_envoyees"] = alertes
+        sauvegarder_memoire(memoire)
+        _log_agent_execution("alerte_stock", f"✅ {nouvelles} alerte(s) envoyée(s)")
+    except Exception as e:
+        _log_agent_execution("alerte_stock", f"❌ {str(e)[:120]}")
+
+
+def analyse_avis_negatifs():
+    """Tâche 4 : Analyse avis négatifs App Store — mercredi 8h."""
+    try:
+        brut = ""
+        for cat in ["loyalty", "upsell", "inventory", "SEO"]:
+            r = tavily.search(query=f"shopify app store negative reviews 1 star {cat}",
+                              max_results=3, search_depth="basic")
+            for res in r.get("results", []):
+                brut += f"\n[{cat}] {res['title']}: {res['content'][:250]}\n"
+        reponse_llm = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": AGENTS["recherche"]["prompt"] + "\n" + CONTEXTE_SHOPIFY},
+                {"role": "user", "content": f"Identifie les frustrations récurrentes et les opportunités d'apps depuis ces avis négatifs:\n{brut}"}
+            ],
+            max_tokens=1500
+        )
+        analyse = reponse_llm.choices[0].message.content
+        memoire = charger_memoire()
+        memoire.setdefault("opportunites_detectees", []).append(
+            {"date": datetime.datetime.now().isoformat(), "analyse": analyse}
+        )
+        memoire["opportunites_detectees"] = memoire["opportunites_detectees"][-10:]
+        sauvegarder_memoire(memoire)
+        dest = os.getenv("GMAIL_ADDRESS", "")
+        if dest:
+            gmail_envoyer(dest, "💡 Opportunités détectées cette semaine", analyse)
+        notion_sync_projet("Analyse avis négatifs", "historique", analyse)
+        _log_agent_execution("analyse_avis_negatifs", "✅ Analyse complète")
+    except Exception as e:
+        _log_agent_execution("analyse_avis_negatifs", f"❌ {str(e)[:120]}")
+
+
+# Initialisation du scheduler (une seule instance grâce à --workers 1)
+scheduler = BackgroundScheduler(timezone="Europe/Paris")
+scheduler.add_job(veille_app_store,      "cron", day_of_week="mon", hour=8,  minute=0, id="veille_app_store")
+scheduler.add_job(rapport_boutiques,     "cron", day_of_week="mon", hour=9,  minute=0, id="rapport_boutiques")
+scheduler.add_job(alerte_stock,          "interval", hours=6,                          id="alerte_stock")
+scheduler.add_job(analyse_avis_negatifs, "cron", day_of_week="wed", hour=8,  minute=0, id="analyse_avis_negatifs")
+scheduler.start()
+
 
 # ── Agents ────────────────────────────────────────────────
 AGENTS = {
@@ -1153,7 +1395,7 @@ def appeler_agent(agent_id, message, contexte_memoire=""):
             texte = texte.replace(match.group(0), f"\n{resultat}\n")
             actions.append("notion_contenu_ajoute")
 
-    # 📧 Agent Communication → envoi Gmail
+    # 📧 Agent Communication → envoi Gmail + sync Notion
     if agent_id == "communication":
         import re
         match = re.search(r'<GMAIL_SEND destinataire="([^"]+)" sujet="([^"]+)" corps="([^"]+)"/>', texte, re.DOTALL)
@@ -1161,6 +1403,16 @@ def appeler_agent(agent_id, message, contexte_memoire=""):
             resultat = gmail_envoyer(match.group(1), match.group(2), match.group(3))
             texte = texte.replace(match.group(0), f"\n{resultat}\n")
             actions.append("gmail_envoye")
+            # Sync email dans Notion si un projet est actif
+            try:
+                memoire = charger_memoire()
+                if memoire.get("projets"):
+                    projet_actif = memoire["projets"][-1]
+                    contenu_email = f"Sujet : {match.group(2)}\nDestinataire : {match.group(1)}\n\n{match.group(3)}"
+                    threading.Thread(target=notion_sync_projet,
+                                     args=(projet_actif, "email", contenu_email), daemon=True).start()
+            except Exception:
+                pass
 
         # 📄 Agent Communication → génère un devis PDF
         match = re.search(r'<DEVIS([^/]+)/>', texte)
@@ -1373,6 +1625,13 @@ def chat():
         "agent": agent_nom
     })
     sauvegarder_memoire(memoire)
+
+    # Sync historique Notion si un projet est actif et la réponse est substantielle
+    if memoire.get("projets") and len(reponse) > 300:
+        projet_actif = memoire["projets"][-1]
+        contenu_hist = f"Question : {message}\n\nRéponse ({agent_nom}) :\n{reponse[:2000]}"
+        threading.Thread(target=notion_sync_projet,
+                         args=(projet_actif, "historique", contenu_hist), daemon=True).start()
 
     return jsonify({
         "reponse": reponse,
@@ -1621,6 +1880,17 @@ def valider_conversation():
     })
     sauvegarder_memoire(memoire)
 
+    # Sync Notion en arrière-plan
+    def _sync_notion_validation():
+        try:
+            with ThreadPoolExecutor(max_workers=3) as ex_notion:
+                ex_notion.submit(notion_sync_projet, nom_projet, "brief",    besoin)
+                ex_notion.submit(notion_sync_projet, nom_projet, "roadmap",  resultats.get("projet", ""))
+                ex_notion.submit(notion_sync_projet, nom_projet, "specs",    resultats.get("dev", ""))
+        except Exception:
+            pass
+    threading.Thread(target=_sync_notion_validation, daemon=True).start()
+
     return jsonify({
         "roadmap":         resultats.get("projet", ""),
         "specs":           resultats.get("dev", ""),
@@ -1754,7 +2024,20 @@ def route_devis():
     numero      = get_next_devis_numero()
     buf         = generer_pdf_devis(client_nom, projet, prestations, prix_total, delai, numero)
     filename    = f"devis_{numero:04d}_{client_nom.replace(' ', '_')}.pdf"
-    return send_file(buf, mimetype="application/pdf", as_attachment=True, download_name=filename)
+    # Sync devis dans Notion en arrière-plan
+    contenu_devis = (
+        f"Client : {client_nom}\nProjet : {projet}\nDélai : {delai}\n"
+        f"Prix total : {prix_total} €\n\nPrestations :\n"
+        + "\n".join(
+            f"• {p.get('description','')}: {p.get('prix','')} €"
+            if isinstance(p, dict) else f"• {p}"
+            for p in prestations
+        )
+    )
+    threading.Thread(target=notion_sync_projet,
+                     args=(client_nom or "Client", "devis", contenu_devis), daemon=True).start()
+    buf_copy = io.BytesIO(buf.getvalue())
+    return send_file(buf_copy, mimetype="application/pdf", as_attachment=True, download_name=filename)
 
 
 @app.route("/devis/download/<filename>")
@@ -1764,6 +2047,53 @@ def telecharger_devis(filename):
     if not os.path.exists(path):
         return "Fichier introuvable", 404
     return send_file(path, mimetype="application/pdf", as_attachment=True, download_name=filename)
+
+
+@app.route("/agent/status", methods=["GET"])
+def agent_status():
+    memoire = charger_memoire()
+    executions = memoire.get("agent_executions", [])
+
+    jobs_info = []
+    for job in scheduler.get_jobs():
+        next_run = job.next_run_time.isoformat() if job.next_run_time else None
+        meta = AGENT_TASKS_META.get(job.id, {})
+        # Trouver la dernière exécution
+        derniere = next((e for e in reversed(executions) if e["task"] == job.id), None)
+        jobs_info.append({
+            "id": job.id,
+            "nom": meta.get("nom", job.id),
+            "frequence": meta.get("frequence", ""),
+            "prochaine_exec": next_run,
+            "derniere_exec": derniere.get("date") if derniere else None,
+            "dernier_statut": derniere.get("statut") if derniere else "jamais exécuté",
+        })
+
+    return jsonify({
+        "scheduler_actif": scheduler.running,
+        "taches": jobs_info,
+        "historique_recent": list(reversed(executions[-10:])),
+    })
+
+
+@app.route("/agent/run/<task_name>", methods=["POST"])
+def agent_run(task_name):
+    taches_map = {
+        "veille_app_store":      veille_app_store,
+        "rapport_boutiques":     rapport_boutiques,
+        "alerte_stock":          alerte_stock,
+        "analyse_avis_negatifs": analyse_avis_negatifs,
+    }
+    if task_name not in taches_map:
+        return jsonify({"erreur": f"Tâche inconnue : {task_name}"}), 404
+    try:
+        taches_map[task_name]()
+        memoire = charger_memoire()
+        executions = memoire.get("agent_executions", [])
+        derniere = next((e for e in reversed(executions) if e["task"] == task_name), None)
+        return jsonify({"ok": True, "statut": derniere.get("statut", "exécuté") if derniere else "exécuté"})
+    except Exception as e:
+        return jsonify({"erreur": str(e)}), 500
 
 
 if __name__ == "__main__":
