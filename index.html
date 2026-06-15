@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mon Assistant IA</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+
+    .container { width: 100%; max-width: 760px; height: 92vh; display: flex; flex-direction: column; background: white; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.08); overflow: hidden; }
+
+    /* Header */
+    .header { padding: 16px 24px; border-bottom: 1px solid #eee; flex-shrink: 0; }
+    .header-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .header h1 { font-size: 18px; font-weight: 600; color: #111; }
+    .header p { font-size: 12px; color: #888; margin-top: 2px; }
+    #projets { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* Design toggle button */
+    .btn-design-toggle { padding: 7px 13px; background: #f0f0f0; color: #333; border: none; border-radius: 8px; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+    .btn-design-toggle:hover { background: #e0e0e0; }
+    .btn-design-toggle.active { background: #6366f1; color: white; }
+
+    /* Design panel wrapper */
+    .design-panel { display: none; border-bottom: 1px solid #eee; background: #fafafa; flex-shrink: 0; max-height: 55vh; overflow-y: auto; }
+    .design-panel.visible { display: block; }
+
+    /* Tabs */
+    .design-tabs { display: flex; border-bottom: 1px solid #e5e5e5; padding: 0 24px; }
+    .design-tab { padding: 10px 14px; font-size: 12px; font-weight: 500; color: #888; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; white-space: nowrap; transition: all 0.15s; margin-bottom: -1px; }
+    .design-tab:hover { color: #6366f1; }
+    .design-tab.active { color: #6366f1; border-bottom-color: #6366f1; }
+
+    /* Tab content */
+    .design-tab-content { display: none; padding: 14px 24px; }
+    .design-tab-content.active { display: block; }
+
+    /* Shared design inputs */
+    .design-row { display: flex; gap: 8px; }
+    .design-row input { flex: 1; padding: 9px 13px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; }
+    .design-row input:focus { border-color: #6366f1; }
+    .btn-indigo { padding: 9px 16px; background: #6366f1; color: white; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+    .btn-indigo:hover { background: #4f46e5; }
+    .btn-indigo:disabled { background: #ccc; cursor: not-allowed; }
+
+    /* Image upload (tab 1) */
+    .upload-area { border: 2px dashed #ddd; border-radius: 10px; padding: 16px; text-align: center; cursor: pointer; transition: border-color 0.2s; display: flex; align-items: center; gap: 12px; justify-content: center; min-height: 64px; margin-bottom: 10px; }
+    .upload-area:hover { border-color: #6366f1; }
+    .upload-area.has-image { border: 2px solid #6366f1; justify-content: flex-start; padding: 8px 12px; }
+    .upload-area img { max-height: 48px; border-radius: 4px; object-fit: cover; }
+    .upload-area .placeholder-text { font-size: 13px; color: #888; }
+
+    /* v0 workflow (tab 2) */
+    .v0-field { margin-bottom: 8px; }
+    .v0-field label { display: block; font-size: 11px; font-weight: 600; color: #555; margin-bottom: 4px; }
+    .v0-field input, .v0-field textarea { width: 100%; padding: 9px 13px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; font-family: inherit; resize: vertical; }
+    .v0-field input:focus, .v0-field textarea:focus { border-color: #6366f1; }
+    .v0-field textarea { min-height: 80px; }
+    .v0-prompt-box { background: #1e1e2e; border-radius: 8px; padding: 12px 14px; margin: 10px 0; position: relative; }
+    .v0-prompt-text { font-family: monospace; font-size: 12px; color: #cdd6f4; line-height: 1.6; white-space: pre-wrap; max-height: 160px; overflow-y: auto; }
+    .v0-prompt-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-copy { padding: 8px 14px; background: #f0f0f0; color: #333; border: none; border-radius: 7px; font-size: 12px; cursor: pointer; }
+    .btn-copy:hover { background: #e0e0e0; }
+    .btn-v0-open { padding: 8px 16px; background: #000; color: white; border: none; border-radius: 7px; font-size: 12px; cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 6px; text-decoration: none; }
+    .btn-v0-open:hover { background: #222; }
+    .v0-separator { border: none; border-top: 1px dashed #ddd; margin: 12px 0; }
+    .v0-step-label { font-size: 11px; font-weight: 600; color: #6366f1; margin-bottom: 6px; }
+    .v0-code-section { display: none; }
+    .v0-code-section.visible { display: block; }
+
+    /* Messages */
+    .messages { flex: 1; overflow-y: auto; padding: 20px 24px; display: flex; flex-direction: column; gap: 14px; }
+    .message { display: flex; flex-direction: column; gap: 4px; max-width: 85%; }
+    .message.user { align-self: flex-end; align-items: flex-end; }
+    .message.assistant { align-self: flex-start; }
+    .message.wide { max-width: 100%; width: 100%; }
+    .bubble { padding: 11px 15px; border-radius: 12px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; }
+    .message.user .bubble { background: #111; color: white; border-bottom-right-radius: 4px; }
+    .message.assistant .bubble { background: #f0f0f0; color: #111; border-bottom-left-radius: 4px; }
+    .agent-tag { font-size: 11px; color: #888; padding: 0 4px; }
+    .typing { color: #888; font-size: 13px; padding: 4px 0; align-self: flex-start; }
+
+    /* Input area */
+    .input-area { padding: 14px 24px; border-top: 1px solid #eee; display: flex; gap: 10px; flex-shrink: 0; }
+    .input-area input { flex: 1; padding: 11px 15px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; outline: none; }
+    .input-area input:focus { border-color: #111; }
+    .btn-send { padding: 11px 20px; background: #111; color: white; border: none; border-radius: 10px; font-size: 14px; cursor: pointer; }
+    .btn-send:hover { background: #333; }
+    .btn-send:disabled { background: #ccc; cursor: not-allowed; }
+
+    /* Design tokens display */
+    .tokens-panel { background: #f8f8ff; border: 1px solid #e0dfff; border-radius: 8px; padding: 10px 12px; margin: 10px 0; }
+    .tokens-panel-title { font-size: 10px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+    .tokens-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .tokens-section { font-size: 11px; }
+    .tokens-section-title { font-weight: 600; color: #444; margin-bottom: 4px; font-size: 10px; text-transform: uppercase; }
+    .color-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+    .color-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); flex-shrink: 0; }
+    .color-label { color: #666; font-size: 11px; flex: 1; }
+    .color-hex { color: #888; font-family: monospace; font-size: 10px; }
+    .tokens-confidence { display: inline-block; margin-top: 6px; font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+    .tokens-confidence.high { background: #dcfce7; color: #166534; }
+    .tokens-confidence.medium { background: #fef9c3; color: #713f12; }
+    .tokens-confidence.low { background: #fee2e2; color: #991b1b; }
+
+    /* Mockup cards */
+    .maquettes-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .maquette-card { border: 2px solid #e5e5e5; border-radius: 10px; overflow: hidden; background: white; transition: border-color 0.15s; }
+    .maquette-card:hover { border-color: #6366f1; }
+    .maquette-card-header { padding: 7px 10px; background: #f8f8f8; border-bottom: 1px solid #eee; }
+    .maquette-card-header span { font-size: 11px; font-weight: 600; color: #444; }
+    .maquette-iframe-wrap { position: relative; height: 200px; overflow: hidden; background: #fafafa; }
+    .maquette-iframe { width: 200%; height: 200%; transform: scale(0.5); transform-origin: top left; border: none; pointer-events: none; }
+    .maquette-actions { padding: 7px 10px; display: flex; gap: 6px; border-top: 1px solid #eee; }
+    .btn-voir { flex: 0; padding: 5px 10px; background: #f0f0f0; color: #333; border: none; border-radius: 6px; font-size: 11px; cursor: pointer; white-space: nowrap; }
+    .btn-voir:hover { background: #e0e0e0; }
+    .btn-valider { flex: 1; padding: 5px; background: #111; color: white; border: none; border-radius: 6px; font-size: 11px; cursor: pointer; }
+    .btn-valider:hover { background: #333; }
+
+    /* Analyse info block */
+    .analyse-block { font-size: 12px; color: #555; background: #f0efff; border-left: 3px solid #6366f1; padding: 8px 12px; border-radius: 0 6px 6px 0; margin-bottom: 10px; white-space: pre-wrap; line-height: 1.5; }
+
+    /* Preview modal */
+    .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 200; align-items: center; justify-content: center; }
+    .modal.visible { display: flex; }
+    .modal-box { background: white; border-radius: 14px; width: 90vw; max-width: 960px; height: 88vh; display: flex; flex-direction: column; overflow: hidden; }
+    .modal-head { padding: 14px 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+    .modal-head h3 { font-size: 15px; font-weight: 600; }
+    .modal-close { background: none; border: none; font-size: 18px; cursor: pointer; color: #888; padding: 2px 8px; border-radius: 6px; }
+    .modal-close:hover { background: #f0f0f0; }
+    .modal-iframe { flex: 1; border: none; }
+    .modal-foot { padding: 12px 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
+    .modal-btn-cancel { padding: 9px 18px; background: #f0f0f0; color: #333; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; }
+    .modal-btn-cancel:hover { background: #e0e0e0; }
+    .modal-btn-valider { padding: 9px 18px; background: #111; color: white; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; }
+    .modal-btn-valider:hover { background: #333; }
+
+    /* Dashboard + Devis buttons */
+    .btn-dash { font-size: 12px; color: #555; text-decoration: none; padding: 7px 13px; border: 1px solid #ddd; border-radius: 8px; background: white; white-space: nowrap; }
+    .btn-dash:hover { background: #f0f0f0; }
+    .btn-devis { padding: 7px 13px; background: #111; color: white; border: none; border-radius: 8px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+    .btn-devis:hover { background: #333; }
+
+    /* Devis form */
+    .devis-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+    .devis-field { margin-bottom: 12px; }
+    .devis-field label { display: block; font-size: 11px; font-weight: 600; color: #555; margin-bottom: 4px; }
+    .devis-field input { width: 100%; padding: 9px 13px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; font-family: inherit; }
+    .devis-field input:focus { border-color: #111; }
+    .presta-row { display: flex; gap: 8px; margin-bottom: 6px; align-items: center; }
+    .presta-desc { flex: 3; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; min-width: 0; }
+    .presta-prix { flex: 1; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; min-width: 70px; }
+    .presta-desc:focus, .presta-prix:focus { border-color: #111; }
+    .presta-del { padding: 8px 10px; background: #fee2e2; color: #991b1b; border: none; border-radius: 8px; cursor: pointer; font-size: 12px; flex-shrink: 0; }
+    .btn-add-presta { padding: 6px 12px; background: #f0f0f0; color: #555; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; margin-top: 4px; }
+    .btn-add-presta:hover { background: #e0e0e0; }
+
+    /* Conv Client panel */
+    .btn-conv { padding: 7px 13px; background: #f0f0f0; color: #333; border: none; border-radius: 8px; font-size: 12px; cursor: pointer; white-space: nowrap; transition: all 0.15s; }
+    .btn-conv:hover { background: #e0e0e0; }
+    .btn-conv.active { background: #10b981; color: white; }
+    .conv-panel { display: none; border-bottom: 1px solid #eee; background: #fafafa; flex-shrink: 0; max-height: 58vh; overflow-y: auto; }
+    .conv-panel.visible { display: block; }
+    .conv-tab-body { padding: 14px 24px; }
+    .conv-field { margin-bottom: 10px; }
+    .conv-field label { display: block; font-size: 11px; font-weight: 600; color: #555; margin-bottom: 4px; }
+    .conv-input { width: 100%; padding: 9px 13px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; font-family: inherit; }
+    .conv-input:focus { border-color: #10b981; }
+    .conv-textarea { width: 100%; padding: 9px 13px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; font-family: inherit; resize: vertical; }
+    .conv-textarea:focus { border-color: #10b981; }
+    .conv-select { padding: 7px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 13px; outline: none; background: white; }
+    .btn-green { padding: 9px 16px; background: #10b981; color: white; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; white-space: nowrap; width: 100%; }
+    .btn-green:hover { background: #059669; }
+    .btn-green:disabled { background: #ccc; cursor: not-allowed; }
+    .livrable-card { border: 1px solid #e5e5e5; border-radius: 10px; overflow: hidden; margin-bottom: 12px; background: white; }
+    .livrable-head { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f8f8f8; border-bottom: 1px solid #eee; }
+    .livrable-head span { font-size: 12px; font-weight: 600; color: #333; }
+    .livrable-content { font-size: 12px; color: #444; padding: 12px; line-height: 1.6; white-space: pre-wrap; max-height: 180px; overflow-y: auto; font-family: inherit; }
+    .conv-empty { font-size: 13px; color: #bbb; text-align: center; padding: 24px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="header">
+      <div class="header-top">
+        <div>
+          <h1>Mon Assistant IA</h1>
+          <p>Dev · Marketing · Recherche · Communication · Projet · Shopify · Design</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+          <a href="/dashboard" class="btn-dash">📊 Dashboard</a>
+          <button class="btn-devis" onclick="ouvrirDevis()">📄 Devis</button>
+          <button class="btn-conv" id="btnConvToggle" onclick="toggleConv()">💬 Conv Client</button>
+          <button class="btn-design-toggle" id="btnDesignToggle" onclick="toggleDesign()">🎨 Design</button>
+        </div>
+      </div>
+      <div id="projets"></div>
+    </div>
+
+    <div class="design-panel" id="designPanel">
+      <!-- Onglets -->
+      <div class="design-tabs">
+        <button class="design-tab active" id="tabBtnImage" onclick="switchTab('image')">📸 Analyse image</button>
+        <button class="design-tab" id="tabBtnV0" onclick="switchTab('v0')">⚡ Workflow v0</button>
+      </div>
+
+      <!-- Onglet 1 : Analyse image -->
+      <div class="design-tab-content active" id="tabImage">
+        <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+          <img id="imgPreview" style="display:none" alt="preview">
+          <div id="uploadPlaceholder">
+            <span style="font-size:20px">📸</span>
+            <span class="placeholder-text">Clique pour uploader une capture d'écran du site</span>
+          </div>
+          <span id="uploadFilename" style="font-size:12px;color:#6366f1;display:none;font-weight:600;"></span>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFile(this)">
+        <div class="design-row">
+          <input type="text" id="composantInput" placeholder="Composant (ex: tableau comparatif, hero section, FAQ…)" value="tableau de comparaison produits">
+          <button class="btn-indigo" id="btnAnalyser" onclick="lancerDesign()">Générer les maquettes</button>
+        </div>
+      </div>
+
+      <!-- Onglet 2 : Workflow v0 -->
+      <div class="design-tab-content" id="tabV0">
+        <!-- Étape 1 : Description + URL -->
+        <div class="v0-step-label">Étape 1 — Décrire le composant</div>
+        <div class="v0-field">
+          <label>Description du composant *</label>
+          <input type="text" id="v0Description" placeholder="Ex: tableau de comparaison de 2 produits avec prix, features et bouton CTA">
+        </div>
+        <div class="v0-field">
+          <label>URL du site client <span style="font-weight:400;color:#aaa">(optionnel — pour adapter le style)</span></label>
+          <input type="text" id="v0UrlSite" placeholder="https://www.client.com">
+        </div>
+        <button class="btn-indigo" id="btnGenererPrompt" onclick="genererPromptV0()" style="width:100%;margin-top:4px;">Générer le prompt v0</button>
+
+        <!-- Étape 2 : Prompt généré -->
+        <div id="v0PromptSection" style="display:none">
+          <hr class="v0-separator">
+          <div class="v0-step-label">Étape 2 — Design tokens extraits + prompt v0</div>
+          <!-- Tokens panel (caché si pas d'URL) -->
+          <div id="v0TokensPanel" style="display:none"></div>
+          <div class="v0-prompt-box">
+            <div class="v0-prompt-text" id="v0PromptText"></div>
+          </div>
+          <div class="v0-prompt-actions">
+            <button class="btn-copy" id="btnCopier" onclick="copierPrompt()">📋 Copier</button>
+            <a id="btnOuvrirV0" href="#" target="_blank" class="btn-v0-open">
+              <span>⚡</span> Ouvrir dans v0.dev →
+            </a>
+          </div>
+
+          <!-- Étape 3 : Coller le code v0 -->
+          <hr class="v0-separator">
+          <div class="v0-step-label">Étape 3 — Coller le code généré par v0</div>
+          <div class="v0-field">
+            <label>Code React/Tailwind (copie-colle depuis v0.dev)</label>
+            <textarea id="v0CodeInput" placeholder="Colle ici le code que v0.dev a généré…" style="min-height:100px;"></textarea>
+          </div>
+          <button class="btn-indigo" id="btnConvertir" onclick="convertirEnLiquid()" style="width:100%;">🔄 Convertir en Liquid Shopify</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Conv Client panel -->
+    <div class="conv-panel" id="convPanel">
+      <div class="design-tabs">
+        <button class="design-tab active" id="convTabBtn1" onclick="switchConvTab(1)">📥 Analyser</button>
+        <button class="design-tab" id="convTabBtn2" onclick="switchConvTab(2)">✅ Compte-rendu</button>
+        <button class="design-tab" id="convTabBtn3" onclick="switchConvTab(3)">🚀 Résultats</button>
+      </div>
+
+      <!-- Onglet 1 : Analyser -->
+      <div class="design-tab-content active conv-tab-body" id="convTab1">
+        <div class="conv-field" style="display:flex;gap:10px;align-items:center;">
+          <label style="margin:0;flex-shrink:0;">Source :</label>
+          <select id="convSource" class="conv-select">
+            <option value="whatsapp">💬 WhatsApp</option>
+            <option value="email">📧 Email</option>
+          </select>
+        </div>
+        <div class="conv-field" style="margin-top:8px;">
+          <label>Conversation du client</label>
+          <textarea id="convTexte" class="conv-textarea" placeholder="Colle ta conversation ici (WhatsApp, email, messages…)" style="min-height:150px;"></textarea>
+        </div>
+        <button class="btn-green" id="btnAnalyserConv" onclick="analyserConversation()">Analyser la conversation →</button>
+      </div>
+
+      <!-- Onglet 2 : Compte-rendu -->
+      <div class="design-tab-content conv-tab-body" id="convTab2">
+        <div id="compteRenduContent">
+          <div class="conv-empty">Lance d'abord l'analyse dans l'onglet 📥</div>
+        </div>
+        <button class="btn-green" id="btnValiderConv" onclick="validerConversation()" style="margin-top:14px;" disabled>✅ Valider et lancer les 4 agents</button>
+      </div>
+
+      <!-- Onglet 3 : Résultats -->
+      <div class="design-tab-content conv-tab-body" id="convTab3">
+        <div id="resultatsContent">
+          <div class="conv-empty">Lance la validation dans l'onglet ✅</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="messages" id="messages">
+      <div class="message assistant">
+        <div class="bubble">Bonjour ! Je suis ton assistant personnel. Pose-moi n'importe quelle question — je route automatiquement vers le bon expert.
+
+Clique sur 🎨 Design pour accéder aux workflows design :
+• 📸 Analyse image → génère 3 maquettes HTML/CSS depuis une capture d'écran
+• ⚡ Workflow v0 → génère un prompt v0.dev optimisé, ouvre v0, puis convertit le code en Liquid Shopify</div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <input type="text" id="input" placeholder="Écris ton message…" onkeydown="if(event.key==='Enter') envoyer()">
+      <button class="btn-send" id="btnSend" onclick="envoyer()">Envoyer</button>
+    </div>
+  </div>
+
+  <!-- Devis modal -->
+  <div class="modal" id="devisModal" onclick="if(event.target===this)fermerDevis()">
+    <div class="modal-box" style="max-width:540px;height:auto;max-height:92vh;">
+      <div class="modal-head">
+        <h3>📄 Nouveau Devis</h3>
+        <button class="modal-close" onclick="fermerDevis()">✕</button>
+      </div>
+      <div class="devis-body">
+        <div class="devis-field">
+          <label>Client *</label>
+          <input type="text" id="devisClient" placeholder="Nom du client ou de l'entreprise">
+        </div>
+        <div class="devis-field">
+          <label>Projet *</label>
+          <input type="text" id="devisProjet" placeholder="Description du projet">
+        </div>
+        <div class="devis-field">
+          <label>Délai estimé</label>
+          <input type="text" id="devisDelai" placeholder="Ex : 3 semaines">
+        </div>
+        <div class="devis-field">
+          <label>Prestations</label>
+          <div id="devisPrestations">
+            <div class="presta-row">
+              <input type="text" class="presta-desc" placeholder="Description de la prestation">
+              <input type="number" class="presta-prix" placeholder="Prix €" oninput="calcTotal()">
+              <button class="presta-del" onclick="this.parentElement.remove();calcTotal()">✕</button>
+            </div>
+          </div>
+          <button class="btn-add-presta" onclick="ajouterPrestation()">+ Ajouter une prestation</button>
+        </div>
+        <div class="devis-field">
+          <label>Prix total HT (€) *</label>
+          <input type="number" id="devisPrix" placeholder="Calculé automatiquement ou saisis manuellement">
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="modal-btn-cancel" onclick="fermerDevis()">Annuler</button>
+        <button class="modal-btn-valider" id="btnDevisGen" onclick="soumettreDevis()">📄 Générer le PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preview modal -->
+  <div class="modal" id="modal" onclick="if(event.target===this)fermerModal()">
+    <div class="modal-box">
+      <div class="modal-head">
+        <h3 id="modalTitle">Prévisualisation</h3>
+        <button class="modal-close" onclick="fermerModal()">✕</button>
+      </div>
+      <iframe class="modal-iframe" id="modalIframe" sandbox="allow-same-origin"></iframe>
+      <div class="modal-foot">
+        <button class="modal-btn-cancel" onclick="fermerModal()">Fermer</button>
+        <button class="modal-btn-valider" id="modalBtnValider">Valider et générer le Liquid →</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── State ─────────────────────────────────────────────
+    let imageFile = null;
+    let maquettesData = [];
+    let composantActuel = "";
+    let v0PromptActuel = "";
+    let v0DescriptionActuelle = "";
+
+    // ── DOM helpers ──────────────────────────────────────
+    const $messages = () => document.getElementById("messages");
+
+    function addMsg(role, htmlContent, agent, wide) {
+      const wrap = document.createElement("div");
+      wrap.className = "message " + role + (wide ? " wide" : "");
+      if (agent) {
+        const tag = document.createElement("span");
+        tag.className = "agent-tag";
+        tag.textContent = "Agent " + agent;
+        wrap.appendChild(tag);
+      }
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.innerHTML = htmlContent;
+      wrap.appendChild(bubble);
+      $messages().appendChild(wrap);
+      $messages().scrollTop = $messages().scrollHeight;
+      return wrap;
+    }
+
+    function addTyping(txt) {
+      const div = document.createElement("div");
+      div.className = "typing";
+      div.textContent = txt;
+      $messages().appendChild(div);
+      $messages().scrollTop = $messages().scrollHeight;
+      return div;
+    }
+
+    // ── Design panel ─────────────────────────────────────
+    function toggleDesign() {
+      const panel = document.getElementById("designPanel");
+      const btn   = document.getElementById("btnDesignToggle");
+      panel.classList.toggle("visible");
+      btn.classList.toggle("active");
+      // Ferme conv si ouvert
+      document.getElementById("convPanel").classList.remove("visible");
+      document.getElementById("btnConvToggle").classList.remove("active");
+    }
+
+    // ── Conv Client panel ─────────────────────────────────
+    let analyseData = null;
+
+    function toggleConv() {
+      const panel = document.getElementById("convPanel");
+      const btn   = document.getElementById("btnConvToggle");
+      panel.classList.toggle("visible");
+      btn.classList.toggle("active");
+      // Ferme design si ouvert
+      document.getElementById("designPanel").classList.remove("visible");
+      document.getElementById("btnDesignToggle").classList.remove("active");
+    }
+
+    function switchConvTab(n) {
+      for (let i = 1; i <= 3; i++) {
+        document.getElementById(`convTab${i}`).classList.toggle("active", i === n);
+        document.getElementById(`convTabBtn${i}`).classList.toggle("active", i === n);
+      }
+    }
+
+    async function analyserConversation() {
+      const texte  = document.getElementById("convTexte").value.trim();
+      const source = document.getElementById("convSource").value;
+      if (!texte) { alert("Colle d'abord la conversation."); return; }
+
+      const btn = document.getElementById("btnAnalyserConv");
+      btn.disabled = true; btn.textContent = "Analyse en cours…";
+
+      try {
+        const res  = await fetch("/analyser-conversation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversation: texte, source })
+        });
+        const data = await res.json();
+        if (data.erreur) { alert("Erreur : " + data.erreur); return; }
+
+        afficherCompteRendu(data.analyse);
+        addMsg("assistant",
+          `✅ Conversation analysée — Besoin : <strong>${esc(data.analyse.besoin || '')}</strong>.<br>` +
+          `Passe à l'onglet ✅ pour valider et lancer les 4 agents.`,
+          "Analyse Client", false);
+      } catch(e) { alert("Erreur : " + e.message); }
+
+      btn.disabled = false; btn.textContent = "Analyser la conversation →";
+    }
+
+    function afficherCompteRendu(analyse) {
+      analyseData = analyse;
+      const e2 = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+      const fonctStr   = (analyse.fonctionnalites || []).join('\n');
+      const questStr   = (analyse.questions || []).join('\n');
+      const contrObj   = analyse.contraintes || {};
+      const contrStr   = Object.entries(contrObj).map(([k,v]) => `${k}: ${v}`).join('\n');
+
+      document.getElementById("compteRenduContent").innerHTML = `
+        <div class="conv-field"><label>🎯 Besoin principal</label>
+          <textarea class="conv-textarea" id="cr_besoin" style="min-height:56px">${e2(analyse.besoin)}</textarea></div>
+        <div class="conv-field"><label>🔧 Type d'extension</label>
+          <input class="conv-input" id="cr_type_extension" value="${e2(analyse.type_extension)}"></div>
+        <div class="conv-field"><label>⚙️ Fonctionnalités <span style="font-weight:400;color:#aaa">(une par ligne)</span></label>
+          <textarea class="conv-textarea" id="cr_fonctionnalites" style="min-height:80px">${e2(fonctStr)}</textarea></div>
+        <div class="conv-field"><label>⚠️ Contraintes <span style="font-weight:400;color:#aaa">(clé: valeur)</span></label>
+          <textarea class="conv-textarea" id="cr_contraintes" style="min-height:56px">${e2(contrStr)}</textarea></div>
+        <div class="conv-field"><label>🎨 Style visuel</label>
+          <input class="conv-input" id="cr_style" value="${e2(analyse.style)}"></div>
+        <div class="conv-field"><label>💬 Ton recommandé</label>
+          <input class="conv-input" id="cr_ton" value="${e2(analyse.ton)}"></div>
+        <div class="conv-field"><label>❓ Questions à clarifier <span style="font-weight:400;color:#aaa">(une par ligne)</span></label>
+          <textarea class="conv-textarea" id="cr_questions" style="min-height:56px">${e2(questStr)}</textarea></div>`;
+
+      document.getElementById("btnValiderConv").disabled = false;
+      switchConvTab(2);
+    }
+
+    async function validerConversation() {
+      const g = id => document.getElementById(id);
+      const editedAnalyse = {
+        besoin:          g("cr_besoin").value.trim(),
+        type_extension:  g("cr_type_extension").value.trim(),
+        fonctionnalites: g("cr_fonctionnalites").value.split('\n').map(s=>s.trim()).filter(Boolean),
+        contraintes:     Object.fromEntries(
+          g("cr_contraintes").value.split('\n').filter(l=>l.includes(':'))
+            .map(l => { const i=l.indexOf(':'); return [l.slice(0,i).trim(), l.slice(i+1).trim()]; })
+        ),
+        style:     g("cr_style").value.trim(),
+        ton:       g("cr_ton").value.trim(),
+        questions: g("cr_questions").value.split('\n').map(s=>s.trim()).filter(Boolean),
+      };
+
+      const btn = g("btnValiderConv");
+      btn.disabled = true; btn.textContent = "4 agents en parallèle… (~30s)";
+
+      addMsg("user", "🚀 Validation du brief — lancement des 4 agents : Projet, Dev, Marketing, Communication", null, false);
+      const typing = addTyping("⚙️ Les 4 agents travaillent en parallèle sur ton brief client…");
+
+      try {
+        const res  = await fetch("/valider-conversation", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ analyse: editedAnalyse })
+        });
+        const data = await res.json();
+        typing.remove();
+
+        if (data.erreur) { addMsg("assistant", "❌ " + esc(data.erreur), null, false); return; }
+
+        afficherResultats(data);
+        addMsg("assistant",
+          `✅ Les 4 livrables sont prêts pour <strong>${esc(data.projet)}</strong>. Consulte l'onglet 🚀 Résultats.`,
+          "Synthèse Multi-agents", false);
+      } catch(e) { typing.remove(); addMsg("assistant", "❌ Erreur : " + esc(e.message), null, false); }
+
+      btn.disabled = false; btn.textContent = "✅ Valider et lancer les 4 agents";
+    }
+
+    function afficherResultats(data) {
+      const sections = [
+        { key: "roadmap",         label: "📅 Roadmap projet" },
+        { key: "specs",           label: "⚙️ Specs techniques" },
+        { key: "brief_marketing", label: "📣 Brief design & App Store" },
+        { key: "email_client",    label: "📧 Email de confirmation client" },
+      ];
+      let html = `<div style="font-size:12px;color:#888;margin-bottom:14px;">Projet enregistré : <strong>${esc(data.projet)}</strong></div>`;
+      for (const s of sections) {
+        html += `
+          <div class="livrable-card">
+            <div class="livrable-head">
+              <span>${s.label}</span>
+              <button class="btn-copy" onclick="copierLivrable('livr_${s.key}',this)">📋 Copier</button>
+            </div>
+            <pre class="livrable-content" id="livr_${s.key}">${esc(data[s.key]||'')}</pre>
+          </div>`;
+      }
+      document.getElementById("resultatsContent").innerHTML = html;
+      switchConvTab(3);
+    }
+
+    function copierLivrable(id, btn) {
+      navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
+        btn.textContent = "✅ Copié !";
+        setTimeout(() => { btn.textContent = "📋 Copier"; }, 2000);
+      });
+    }
+
+    function switchTab(tab) {
+      document.getElementById("tabImage").classList.toggle("active", tab === "image");
+      document.getElementById("tabV0").classList.toggle("active", tab === "v0");
+      document.getElementById("tabBtnImage").classList.toggle("active", tab === "image");
+      document.getElementById("tabBtnV0").classList.toggle("active", tab === "v0");
+    }
+
+    // ── Workflow v0 ──────────────────────────────────────
+    async function genererPromptV0() {
+      const description = document.getElementById("v0Description").value.trim();
+      const urlSite = document.getElementById("v0UrlSite").value.trim();
+      if (!description) { alert("Décris d'abord le composant."); return; }
+
+      v0DescriptionActuelle = description;
+      const btn = document.getElementById("btnGenererPrompt");
+      btn.disabled = true;
+      btn.textContent = urlSite ? "Extraction du style + génération…" : "Génération en cours…";
+
+      let userMsg = `⚡ Génère un prompt v0 pour : <strong>${esc(description)}</strong>`;
+      if (urlSite) userMsg += `<br><span style="font-size:12px;color:#aaa">🔍 Extraction des design tokens de ${esc(urlSite)}</span>`;
+      addMsg("user", userMsg, null, false);
+      const typing = addTyping(urlSite
+        ? "🔍 Extraction des design tokens du site client, puis génération du prompt v0…"
+        : "⚡ L'agent Design génère le prompt v0…");
+
+      try {
+        const res = await fetch("/design/v0/prompt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description, url_site: urlSite })
+        });
+        const data = await res.json();
+        typing.remove();
+
+        if (data.erreur) {
+          addMsg("assistant", "❌ " + esc(data.erreur), "Design", false);
+        } else {
+          v0PromptActuel = data.prompt_v0;
+          document.getElementById("v0PromptText").textContent = data.prompt_v0;
+          document.getElementById("btnOuvrirV0").href = data.url_v0;
+          document.getElementById("v0PromptSection").style.display = "block";
+          document.getElementById("v0CodeInput").value = "";
+
+          // Afficher les tokens si extraits
+          if (data.tokens) {
+            afficherTokens(data.tokens, urlSite);
+          } else {
+            document.getElementById("v0TokensPanel").style.display = "none";
+          }
+
+          // Confirmation dans le chat avec résumé des tokens
+          let confirmMsg = `✅ Prompt v0 généré pour <em>${esc(description)}</em>.`;
+          if (data.tokens) {
+            const conf = data.tokens.confidence || "medium";
+            const confLabel = conf === "high" ? "🟢 haute" : conf === "medium" ? "🟡 moyenne" : "🔴 faible";
+            confirmMsg += ` Design tokens extraits (confiance ${confLabel}).`;
+          }
+          confirmMsg += " Ouvre v0.dev, génère le composant, puis colle le code dans l'étape 3.";
+          addMsg("assistant", confirmMsg, "Design", false);
+        }
+      } catch(e) {
+        typing.remove();
+        addMsg("assistant", "❌ Erreur : " + esc(e.message), "Design", false);
+      }
+
+      btn.disabled = false;
+      btn.textContent = "Générer le prompt v0";
+    }
+
+    function afficherTokens(tokens, urlSite) {
+      const panel = document.getElementById("v0TokensPanel");
+      const c = tokens.colors || {};
+      const t = tokens.typography || {};
+      const s = tokens.shape || {};
+      const conf = tokens.confidence || "medium";
+
+      const colorEntries = [
+        ["Background",  c.background],
+        ["Text",        c.text_primary],
+        ["Secondary",   c.text_secondary],
+        ["Accent",      c.accent],
+        ["Button",      c.button_bg],
+        ["Surface",     c.surface],
+        ["Border",      c.border],
+      ].filter(([, hex]) => hex);
+
+      const colorsHtml = colorEntries.map(([label, hex]) => `
+        <div class="color-row">
+          <div class="color-swatch" style="background:${esc(hex)}"></div>
+          <span class="color-label">${label}</span>
+          <span class="color-hex">${esc(hex)}</span>
+        </div>`).join("");
+
+      panel.innerHTML = `
+        <div class="tokens-panel">
+          <div class="tokens-panel-title">🎨 Design tokens extraits — ${esc(urlSite || "")}</div>
+          <div class="tokens-grid">
+            <div class="tokens-section">
+              <div class="tokens-section-title">Couleurs</div>
+              ${colorsHtml}
+            </div>
+            <div class="tokens-section">
+              <div class="tokens-section-title">Typographie</div>
+              <div style="font-size:11px;color:#444;line-height:1.7;">
+                <div><strong>Body :</strong> ${esc(t.font_primary || "—")}</div>
+                <div><strong>Titres :</strong> ${esc(t.font_headings || "—")}</div>
+                <div><strong>Graisse titre :</strong> ${esc(t.heading_weight || "—")}</div>
+              </div>
+              <div class="tokens-section-title" style="margin-top:8px;">Forme</div>
+              <div style="font-size:11px;color:#444;line-height:1.7;">
+                <div><strong>Bouton radius :</strong> ${esc(s.radius_button || "—")}</div>
+                <div><strong>Card radius :</strong> ${esc(s.radius_card || "—")}</div>
+                <div><strong>Style :</strong> ${esc(tokens.style_label || "—")}</div>
+              </div>
+              <span class="tokens-confidence ${esc(conf)}">
+                Confiance : ${esc(conf)}
+              </span>
+            </div>
+          </div>
+        </div>`;
+      panel.style.display = "block";
+    }
+
+    function copierPrompt() {
+      navigator.clipboard.writeText(v0PromptActuel).then(() => {
+        const btn = document.getElementById("btnCopier");
+        btn.textContent = "✅ Copié !";
+        setTimeout(() => { btn.textContent = "📋 Copier"; }, 2000);
+      });
+    }
+
+    async function convertirEnLiquid() {
+      const code = document.getElementById("v0CodeInput").value.trim();
+      if (!code) { alert("Colle d'abord le code v0 dans le champ."); return; }
+
+      const btn = document.getElementById("btnConvertir");
+      btn.disabled = true;
+      btn.textContent = "Conversion en cours…";
+
+      addMsg("user",
+        `🔄 Convertis ce composant v0 en Liquid Shopify — <em>${esc(v0DescriptionActuelle)}</em>`,
+        null, false);
+      const typing = addTyping("⚙️ L'agent Dev convertit le code v0 en Liquid Shopify…");
+
+      try {
+        const res = await fetch("/design/v0/convertir", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code_v0: code, composant: v0DescriptionActuelle })
+        });
+        const data = await res.json();
+        typing.remove();
+        addMsg("assistant", data.code_liquid, "Dev — Liquid Shopify", false);
+      } catch(e) {
+        typing.remove();
+        addMsg("assistant", "❌ Erreur conversion : " + esc(e.message), "Dev", false);
+      }
+
+      btn.disabled = false;
+      btn.textContent = "🔄 Convertir en Liquid Shopify";
+    }
+
+    function handleFile(input) {
+      const file = input.files[0];
+      if (!file) return;
+      imageFile = file;
+      const area = document.getElementById("uploadArea");
+      const preview = document.getElementById("imgPreview");
+      const placeholder = document.getElementById("uploadPlaceholder");
+      const filename = document.getElementById("uploadFilename");
+      area.classList.add("has-image");
+      placeholder.style.display = "none";
+      filename.style.display = "inline";
+      filename.textContent = "📎 " + file.name;
+      const reader = new FileReader();
+      reader.onload = e => {
+        preview.src = e.target.result;
+        preview.style.display = "block";
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function lancerDesign() {
+      if (!imageFile) { alert("Sélectionne d'abord une capture d'écran."); return; }
+      const composant = document.getElementById("composantInput").value.trim() || "composant web";
+      composantActuel = composant;
+      const btn = document.getElementById("btnAnalyser");
+      btn.disabled = true;
+      btn.textContent = "Analyse en cours…";
+
+      addMsg("user", `🎨 Analyse le style de ce site et génère 3 maquettes pour : <strong>${esc(composant)}</strong>`, null, false);
+      const typing = addTyping("🎨 L'agent Design analyse l'image et génère les maquettes…");
+
+      try {
+        const fd = new FormData();
+        fd.append("image", imageFile);
+        fd.append("composant", composant);
+        const res = await fetch("/design/analyser", { method: "POST", body: fd });
+        const data = await res.json();
+        typing.remove();
+        if (data.erreur) {
+          addMsg("assistant", "❌ " + esc(data.erreur), "Design", false);
+        } else {
+          maquettesData = data.maquettes;
+          afficherMaquettes(data);
+        }
+      } catch(e) {
+        typing.remove();
+        addMsg("assistant", "❌ Erreur design : " + esc(e.message), "Design", false);
+      }
+      btn.disabled = false;
+      btn.textContent = "Générer les maquettes";
+    }
+
+    function afficherMaquettes(data) {
+      const labels = ["Sobre & Minimaliste", "Moderne & Élaborée", "Créative & Audacieuse"];
+      const wrap = document.createElement("div");
+      wrap.className = "message assistant wide";
+
+      const tag = document.createElement("span");
+      tag.className = "agent-tag";
+      tag.textContent = "Agent Design";
+      wrap.appendChild(tag);
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.style.maxWidth = "100%";
+
+      // Analyse block
+      const analyseDiv = document.createElement("div");
+      analyseDiv.className = "analyse-block";
+      analyseDiv.innerHTML = "<strong>Analyse du style :</strong>\n" + esc(data.analyse);
+      bubble.appendChild(analyseDiv);
+
+      const titleDiv = document.createElement("div");
+      titleDiv.style.cssText = "font-weight:600;margin-bottom:10px;font-size:14px;";
+      titleDiv.innerHTML = "3 maquettes pour : <em>" + esc(data.composant) + "</em>";
+      bubble.appendChild(titleDiv);
+
+      const grid = document.createElement("div");
+      grid.className = "maquettes-grid";
+
+      data.maquettes.forEach((html, i) => {
+        const card = document.createElement("div");
+        card.className = "maquette-card";
+
+        const head = document.createElement("div");
+        head.className = "maquette-card-header";
+        head.innerHTML = `<span>Maquette ${i+1} — ${labels[i]}</span>`;
+        card.appendChild(head);
+
+        const iframeWrap = document.createElement("div");
+        iframeWrap.className = "maquette-iframe-wrap";
+        const iframe = document.createElement("iframe");
+        iframe.className = "maquette-iframe";
+        iframe.setAttribute("sandbox", "allow-same-origin");
+        iframe.scrolling = "no";
+        iframeWrap.appendChild(iframe);
+        card.appendChild(iframeWrap);
+
+        const actions = document.createElement("div");
+        actions.className = "maquette-actions";
+
+        const btnVoir = document.createElement("button");
+        btnVoir.className = "btn-voir";
+        btnVoir.textContent = "👁 Voir";
+        btnVoir.onclick = () => ouvrirModal(i, labels[i]);
+        actions.appendChild(btnVoir);
+
+        const btnVal = document.createElement("button");
+        btnVal.className = "btn-valider";
+        btnVal.textContent = "✅ Valider → Liquid";
+        btnVal.onclick = () => validerMaquette(i, labels[i]);
+        actions.appendChild(btnVal);
+
+        card.appendChild(actions);
+        grid.appendChild(card);
+
+        // Set srcdoc after DOM append
+        setTimeout(() => { iframe.srcdoc = html; }, 50 * (i + 1));
+      });
+
+      bubble.appendChild(grid);
+      wrap.appendChild(bubble);
+      $messages().appendChild(wrap);
+      $messages().scrollTop = $messages().scrollHeight;
+    }
+
+    // ── Modal ─────────────────────────────────────────────
+    function ouvrirModal(index, label) {
+      document.getElementById("modalTitle").textContent = `Maquette ${index+1} — ${label}`;
+      document.getElementById("modalIframe").srcdoc = maquettesData[index];
+      document.getElementById("modalBtnValider").onclick = () => {
+        fermerModal();
+        validerMaquette(index, label);
+      };
+      document.getElementById("modal").classList.add("visible");
+    }
+
+    function fermerModal() {
+      document.getElementById("modal").classList.remove("visible");
+    }
+
+    // ── Validation → Liquid ───────────────────────────────
+    async function validerMaquette(index, label) {
+      addMsg("user", `✅ Je valide la maquette ${index+1} (${esc(label)}) — génère le code Liquid Shopify`, null, false);
+      const typing = addTyping("⚙️ L'agent Dev génère le code Liquid Shopify…");
+      try {
+        const res = await fetch("/design/valider", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ maquette: maquettesData[index], composant: composantActuel })
+        });
+        const data = await res.json();
+        typing.remove();
+        addMsg("assistant", data.code_liquid, "Dev — Code Liquid Shopify", false);
+      } catch(e) {
+        typing.remove();
+        addMsg("assistant", "❌ Erreur génération Liquid : " + esc(e.message), "Dev", false);
+      }
+    }
+
+    // ── Chat normal ───────────────────────────────────────
+    async function envoyer() {
+      const input = document.getElementById("input");
+      const btn = document.getElementById("btnSend");
+      const texte = input.value.trim();
+      if (!texte) return;
+      addMsg("user", esc(texte), null, false);
+      input.value = "";
+      btn.disabled = true;
+      const typing = addTyping("L'assistant réfléchit…");
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: texte })
+        });
+        const data = await res.json();
+        typing.remove();
+        addMsg("assistant", data.reponse, data.agent, false);
+        if (data.projets && data.projets.length > 0) {
+          document.getElementById("projets").innerHTML = data.projets
+            .map(p => `<span style="background:#f0f0f0;padding:2px 8px;border-radius:4px;font-size:11px;">${esc(p)}</span>`)
+            .join("");
+        }
+      } catch(e) {
+        typing.remove();
+        addMsg("assistant", "Erreur de connexion.", null, false);
+      }
+      btn.disabled = false;
+      $messages().scrollTop = $messages().scrollHeight;
+      input.focus();
+    }
+
+    // ── Devis modal ───────────────────────────────────────────
+    function ouvrirDevis() {
+      document.getElementById("devisModal").classList.add("visible");
+    }
+    function fermerDevis() {
+      document.getElementById("devisModal").classList.remove("visible");
+    }
+    function ajouterPrestation() {
+      const row = document.createElement("div");
+      row.className = "presta-row";
+      row.innerHTML = `
+        <input type="text" class="presta-desc" placeholder="Description">
+        <input type="number" class="presta-prix" placeholder="Prix €" oninput="calcTotal()">
+        <button class="presta-del" onclick="this.parentElement.remove();calcTotal()">✕</button>`;
+      document.getElementById("devisPrestations").appendChild(row);
+    }
+    function calcTotal() {
+      const total = [...document.querySelectorAll(".presta-prix")]
+        .reduce((s, i) => s + (parseFloat(i.value) || 0), 0);
+      if (total > 0) document.getElementById("devisPrix").value = total;
+    }
+    async function soumettreDevis() {
+      const client = document.getElementById("devisClient").value.trim();
+      const projet = document.getElementById("devisProjet").value.trim();
+      if (!client || !projet) { alert("Client et projet sont requis."); return; }
+
+      const prestations = [...document.querySelectorAll(".presta-row")].map(r => ({
+        description: r.querySelector(".presta-desc").value.trim(),
+        prix: r.querySelector(".presta-prix").value
+      })).filter(p => p.description);
+
+      const prix_total = document.getElementById("devisPrix").value || "0";
+      const delai      = document.getElementById("devisDelai").value.trim();
+
+      const btn = document.getElementById("btnDevisGen");
+      btn.disabled = true; btn.textContent = "Génération en cours…";
+
+      try {
+        const res = await fetch("/devis", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ client, projet, prestations, prix_total, delai })
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          const url  = URL.createObjectURL(blob);
+          const a    = document.createElement("a");
+          a.href = url;
+          a.download = `devis_${client.replace(/\s+/g, "_")}.pdf`;
+          a.click();
+          fermerDevis();
+          addMsg("assistant",
+            `✅ Devis PDF généré pour <strong>${esc(client)}</strong> — téléchargement en cours.`,
+            "Dev", false);
+        } else {
+          alert("Erreur lors de la génération du PDF.");
+        }
+      } catch(e) {
+        alert("Erreur : " + e.message);
+      }
+      btn.disabled = false; btn.textContent = "📄 Générer le PDF";
+    }
+
+    function esc(str) {
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+  </script>
+</body>
+</html>

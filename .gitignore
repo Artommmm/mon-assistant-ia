@@ -1,0 +1,8 @@
+.env
+venv/
+__pycache__/
+*.pyc
+memoire.json
+devis_counter.json
+devis_pdfs/
+*.db
