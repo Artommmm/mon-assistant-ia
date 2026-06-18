@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Projet — Assistant IA</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:system-ui,sans-serif;background:#f5f5f5;min-height:100vh}
+    .wrap{max-width:960px;margin:0 auto;padding:28px 20px}
+
+    /* Header */
+    .detail-header{display:flex;align-items:center;gap:16px;margin-bottom:28px}
+    .btn-back{padding:8px 14px;background:white;color:#555;border:1px solid #ddd;border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none;flex-shrink:0}
+    .btn-back:hover{background:#f0f0f0}
+    .header-title{flex:1;min-width:0}
+    .header-title h1{font-size:20px;font-weight:700;color:#111;word-break:break-word}
+    .header-actions{display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap}
+    .btn-notion{padding:8px 14px;background:white;color:#555;border:1px solid #ddd;border-radius:8px;font-size:12px;cursor:pointer;text-decoration:none}
+    .btn-notion:hover{background:#f0f0f0}
+    .btn-sync{padding:8px 14px;background:#111;color:white;border:none;border-radius:8px;font-size:12px;cursor:pointer}
+    .btn-sync:hover{background:#333}
+    .btn-sync:disabled{background:#ccc;cursor:not-allowed}
+
+    /* Info cards */
+    .info-cards{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px}
+    .info-card{background:white;border-radius:10px;padding:14px 18px;box-shadow:0 1px 4px rgba(0,0,0,.06);min-width:120px;flex:1}
+    .info-card-label{font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px}
+    .info-card-value{font-size:14px;font-weight:600;color:#111;word-break:break-word}
+
+    /* Progress section */
+    .progress-card{background:white;border-radius:12px;padding:20px 24px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px}
+    .progress-card h2{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em;margin-bottom:14px}
+    .progress-bar-wrap{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+    .progress-track{flex:1;height:6px;background:#f0f0f0;border-radius:4px;overflow:hidden}
+    .progress-fill{height:100%;background:#111;border-radius:4px;transition:width .4s}
+    .progress-pct{font-size:14px;font-weight:700;color:#111;white-space:nowrap;min-width:36px;text-align:right}
+    .phases{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+    .phase-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid #eee;border-radius:9px;background:#fafafa;cursor:pointer;transition:background .1s}
+    .phase-item:hover{background:#f0f0f0}
+    .phase-item.checked{background:#f0fdf4;border-color:#bbf7d0}
+    .phase-check{width:17px;height:17px;border-radius:4px;border:2px solid #ccc;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;background:white;transition:all .15s}
+    .phase-item.checked .phase-check{background:#111;border-color:#111;color:white}
+    .phase-label{font-size:12px;font-weight:500;color:#444}
+    .phase-item.checked .phase-label{color:#15803d}
+
+    /* Tabs */
+    .tabs-section{background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);margin-bottom:20px;overflow:hidden}
+    .tabs-nav{display:flex;border-bottom:1px solid #f0f0f0;overflow-x:auto}
+    .tab-btn{padding:12px 18px;font-size:12px;font-weight:600;color:#888;background:none;border:none;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;transition:all .15s;margin-bottom:-1px}
+    .tab-btn:hover{color:#333}
+    .tab-btn.active{color:#111;border-bottom-color:#111}
+    .tab-content{display:none;padding:20px 24px}
+    .tab-content.active{display:block}
+    .tab-text{font-size:13px;color:#444;line-height:1.7;white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto}
+    .tab-empty{font-size:13px;color:#bbb;padding:20px 0}
+    .notion-hint{font-size:12px;color:#888;background:#f8f8f8;border-radius:8px;padding:10px 14px;margin-top:12px}
+
+    /* Chat */
+    .chat-section{background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
+    .chat-header{padding:14px 20px;border-bottom:1px solid #f0f0f0}
+    .chat-header h2{font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.06em}
+    .chat-messages{padding:16px 20px;display:flex;flex-direction:column;gap:12px;min-height:80px;max-height:340px;overflow-y:auto}
+    .msg{display:flex;flex-direction:column;gap:3px;max-width:88%}
+    .msg.user{align-self:flex-end;align-items:flex-end}
+    .msg.assistant{align-self:flex-start}
+    .bubble{padding:10px 14px;border-radius:12px;font-size:13px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+    .msg.user .bubble{background:#111;color:white;border-bottom-right-radius:4px}
+    .msg.assistant .bubble{background:#f0f0f0;color:#111;border-bottom-left-radius:4px}
+    .agent-tag{font-size:11px;color:#999;padding:0 4px}
+    .chat-input{display:flex;gap:10px;padding:14px 20px;border-top:1px solid #f0f0f0}
+    .chat-input input{flex:1;padding:10px 14px;border:1px solid #ddd;border-radius:10px;font-size:14px;outline:none;font-family:inherit}
+    .chat-input input:focus{border-color:#111}
+    .chat-input button{padding:10px 20px;background:#111;color:white;border:none;border-radius:10px;font-size:14px;cursor:pointer}
+    .chat-input button:hover{background:#333}
+    .chat-input button:disabled{background:#ccc;cursor:not-allowed}
+    .typing{color:#999;font-size:12px;padding:4px 0}
+    .sync-result{font-size:12px;color:#166534;background:#f0fdf4;border-radius:8px;padding:8px 12px;margin-top:6px}
+
+    /* Utils */
+    .loading{text-align:center;padding:60px;color:#bbb}
+  </style>
+</head>
+<body>
+  <div id="app" class="wrap">
+    <div class="loading">Chargement du projet…</div>
+  </div>
+
+  <script>
+    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+    const nomProjet = decodeURIComponent(window.location.pathname.replace(/^\/projet\//, ''))
+    let projetData = null
+
+    // ── Charger et afficher le projet ─────────────────────
+    async function charger() {
+      try {
+        const res  = await fetch('/projet-data/' + encodeURIComponent(nomProjet))
+        projetData = await res.json()
+        document.title = projetData.nom + ' — Assistant IA'
+        render()
+      } catch(e) {
+        document.getElementById('app').innerHTML = `<div class="loading">Erreur : ${esc(e.message)}</div>`
+      }
+    }
+
+    function render() {
+      const p = projetData
+      const m = p.meta || {}
+      const c = p.content || {}
+
+      const tabs = [
+        { id:'brief',    label:'📋 Brief',      text: c.brief },
+        { id:'specs',    label:'⚙️ Specs',       text: c.specs },
+        { id:'roadmap',  label:'🗺️ Roadmap',     text: c.roadmap },
+        { id:'email',    label:'📧 Email client', text: c.email },
+        { id:'marketing',label:'📣 Marketing',   text: c.marketing },
+        { id:'historique',label:'📝 Historique', text: null },
+      ]
+
+      const np = v => (!v || v === '—') ? 'Non précisé' : v
+      const infoCards = [
+        { label:'Client',     value: np(m.client) },
+        { label:'Budget',     value: np(m.budget) },
+        { label:'Délai',      value: np(m.delai) },
+        { label:'Livraison',  value: np(m.date_livraison) },
+        { label:'Type',       value: m.type_extension ? m.type_extension.slice(0,40) : 'Non précisé' },
+        { label:'Créé le',    value: p.date_creation || '—' },
+      ]
+
+      const phaseKeys = ['phase_1','phase_2','phase_3','phase_4']
+
+      document.getElementById('app').innerHTML = `
+        <!-- Header -->
+        <div class="detail-header">
+          <a href="/" class="btn-back">← Projets</a>
+          <div class="header-title">
+            <h1>🛍️ ${esc(p.nom)}</h1>
+          </div>
+          <div class="header-actions">
+            <button class="btn-notion" id="btnNotion" onclick="ouvrirNotion()">🔗 Notion</button>
+            <button class="btn-sync" id="btnSync" onclick="syncNotion()">↑ Sync Notion</button>
+          </div>
+        </div>
+
+        <!-- Info cards -->
+        <div class="info-cards">
+          ${infoCards.map(ic => `
+            <div class="info-card">
+              <div class="info-card-label">${esc(ic.label)}</div>
+              <div class="info-card-value">${esc(ic.value)}</div>
+            </div>`).join('')}
+        </div>
+
+        <!-- Progress + phases -->
+        <div class="progress-card">
+          <h2>Progression</h2>
+          <div class="progress-bar-wrap">
+            <div class="progress-track">
+              <div class="progress-fill" id="progFill" style="width:${p.progression}%"></div>
+            </div>
+            <div class="progress-pct" id="progPct">${p.progression}%</div>
+          </div>
+          <div class="phases">
+            ${p.phase_labels.map((label, i) => {
+              const key     = phaseKeys[i]
+              const checked = p.phases[key] ? true : false
+              return `
+                <div class="phase-item${checked ? ' checked' : ''}" id="phase-${key}" onclick="togglePhase('${key}')">
+                  <div class="phase-check">${checked ? '✓' : ''}</div>
+                  <div class="phase-label">${esc(label)}</div>
+                </div>`
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs-section">
+          <div class="tabs-nav">
+            ${tabs.map((t,i) => `
+              <button class="tab-btn${i===0?' active':''}" id="tabBtn-${t.id}" onclick="switchTab('${t.id}')">
+                ${t.label}
+              </button>`).join('')}
+          </div>
+          ${tabs.map((t,i) => `
+            <div class="tab-content${i===0?' active':''}" id="tab-${t.id}">
+              ${t.text
+                ? `<div class="tab-text">${esc(t.text)}</div>`
+                : `<div class="tab-empty">Aucun contenu pour l'instant.</div>
+                   <div class="notion-hint">💡 Ce contenu est synchronisé dans Notion — utilise le bouton <strong>↑ Sync Notion</strong> pour le mettre à jour.</div>`}
+            </div>`).join('')}
+        </div>
+
+        <!-- Chat -->
+        <div class="chat-section">
+          <div class="chat-header">
+            <h2>Chat — Contexte : ${esc(p.nom)}</h2>
+          </div>
+          <div class="chat-messages" id="chatMessages"></div>
+          <div class="chat-input">
+            <input type="text" id="chatInput" placeholder="Pose une question sur ce projet…"
+                   onkeydown="if(event.key==='Enter') envoyer()">
+            <button id="btnEnvoyer" onclick="envoyer()">Envoyer</button>
+          </div>
+        </div>
+
+        <div id="syncResult"></div>
+      `
+
+      // Stocker l'état des phases
+      window._phases = {...p.phases}
+    }
+
+    // ── Tabs ──────────────────────────────────────────────
+    function switchTab(id) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'))
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'))
+      document.getElementById('tabBtn-' + id).classList.add('active')
+      document.getElementById('tab-' + id).classList.add('active')
+    }
+
+    // ── Phases ────────────────────────────────────────────
+    async function togglePhase(key) {
+      if (!window._phases) return
+      const newVal = !window._phases[key]
+      window._phases[key] = newVal
+
+      const item  = document.getElementById('phase-' + key)
+      const check = item.querySelector('.phase-check')
+      const label = item.querySelector('.phase-label')
+      item.classList.toggle('checked', newVal)
+      check.textContent = newVal ? '✓' : ''
+
+      // Update progress bar
+      const total   = 4
+      const checked = Object.values(window._phases).filter(Boolean).length
+      const pct     = Math.round(checked / total * 100)
+      document.getElementById('progFill').style.width = pct + '%'
+      document.getElementById('progPct').textContent  = pct + '%'
+
+      try {
+        await fetch('/projet/' + encodeURIComponent(nomProjet) + '/phase', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ phase: key, checked: newVal })
+        })
+      } catch(e) { console.error(e) }
+    }
+
+    // ── Notion ────────────────────────────────────────────
+    function ouvrirNotion() {
+      window.open('https://www.notion.so', '_blank')
+    }
+
+    async function syncNotion() {
+      const btn = document.getElementById('btnSync')
+      btn.disabled = true; btn.textContent = '⏳ Sync…'
+      try {
+        const res  = await fetch('/projet/' + encodeURIComponent(nomProjet) + '/notion-sync', {method:'POST'})
+        const data = await res.json()
+        const el   = document.getElementById('syncResult')
+        el.innerHTML = `<div class="sync-result">✅ Synchronisé : ${esc((data.resultats||[]).join(' · '))}</div>`
+        setTimeout(() => { el.innerHTML = '' }, 5000)
+      } catch(e) {
+        document.getElementById('syncResult').innerHTML = `<div class="sync-result" style="background:#fee2e2;color:#991b1b">❌ ${esc(e.message)}</div>`
+      }
+      btn.disabled = false; btn.textContent = '↑ Sync Notion'
+    }
+
+    // ── Chat ──────────────────────────────────────────────
+    function addMsg(role, html, agent) {
+      const box  = document.getElementById('chatMessages')
+      const wrap = document.createElement('div')
+      wrap.className = 'msg ' + role
+      if (agent) {
+        const tag = document.createElement('span')
+        tag.className = 'agent-tag'; tag.textContent = 'Agent ' + agent
+        wrap.appendChild(tag)
+      }
+      const bubble = document.createElement('div')
+      bubble.className = 'bubble'; bubble.innerHTML = html
+      wrap.appendChild(bubble)
+      box.appendChild(wrap)
+      box.scrollTop = box.scrollHeight
+    }
+
+    function addTyping() {
+      const box = document.getElementById('chatMessages')
+      const div = document.createElement('div')
+      div.className = 'typing'; div.textContent = 'L\'assistant réfléchit…'
+      box.appendChild(div); box.scrollTop = box.scrollHeight
+      return div
+    }
+
+    async function envoyer() {
+      const input = document.getElementById('chatInput')
+      const btn   = document.getElementById('btnEnvoyer')
+      const texte = input.value.trim()
+      if (!texte) return
+      addMsg('user', esc(texte), null)
+      input.value = ''; btn.disabled = true
+      const typing = addTyping()
+      try {
+        const res  = await fetch('/projet/' + encodeURIComponent(nomProjet) + '/chat', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({message: texte})
+        })
+        const data = await res.json()
+        typing.remove()
+        addMsg('assistant', esc(data.reponse || data.erreur || ''), data.agent)
+      } catch(e) {
+        typing.remove()
+        addMsg('assistant', 'Erreur de connexion.', null)
+      }
+      btn.disabled = false; input.focus()
+    }
+
+    charger()
+  </script>
+</body>
+</html>

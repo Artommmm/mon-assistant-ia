@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nouveau projet — Assistant IA</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:system-ui,sans-serif;background:#f5f5f5;min-height:100vh}
+    .wrap{max-width:720px;margin:0 auto;padding:36px 20px}
+
+    /* Header */
+    .page-header{display:flex;align-items:center;gap:16px;margin-bottom:32px}
+    .btn-back{padding:9px 16px;background:white;color:#555;border:1px solid #ddd;border-radius:9px;font-size:13px;cursor:pointer;text-decoration:none;flex-shrink:0}
+    .btn-back:hover{background:#f0f0f0}
+    .page-header h1{font-size:20px;font-weight:700;color:#111}
+
+    /* Steps */
+    .steps{display:flex;gap:0;margin-bottom:28px;background:white;border-radius:12px;overflow:hidden;border:1px solid #eee}
+    .step{flex:1;padding:12px;text-align:center;font-size:12px;font-weight:600;color:#bbb;border-right:1px solid #eee;cursor:pointer;transition:all .15s}
+    .step:last-child{border-right:none}
+    .step.active{color:#111;background:#f8f8f8}
+    .step.done{color:#15803d;background:#f0fdf4}
+
+    /* Panel */
+    .panel{background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);overflow:hidden;margin-bottom:20px}
+    .panel-body{padding:24px}
+
+    /* Fields */
+    .field{margin-bottom:16px}
+    .field label{display:block;font-size:11px;font-weight:700;color:#555;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+    .field-hint{font-size:11px;color:#aaa;font-weight:400;text-transform:none;letter-spacing:0}
+    textarea,input[type=text],select{width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:9px;font-size:14px;outline:none;font-family:inherit;transition:border .15s}
+    textarea{resize:vertical}
+    textarea:focus,input[type=text]:focus{border-color:#111}
+    select{background:white;cursor:pointer}
+
+    /* Buttons */
+    .btn-green{width:100%;padding:12px;background:#10b981;color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;margin-top:4px}
+    .btn-green:hover{background:#059669}
+    .btn-green:disabled{background:#ccc;cursor:not-allowed}
+
+    /* Compte rendu editable */
+    .cr-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:600px){.cr-grid{grid-template-columns:1fr}}
+    .cr-full{grid-column:1/-1}
+
+    /* Livrables */
+    .livrable{border:1px solid #eee;border-radius:10px;overflow:hidden;margin-bottom:12px}
+    .livrable-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f8f8f8;border-bottom:1px solid #eee}
+    .livrable-head span{font-size:13px;font-weight:600;color:#333}
+    .livrable-body{font-size:12px;color:#444;padding:14px;line-height:1.7;white-space:pre-wrap;max-height:200px;overflow-y:auto;font-family:inherit}
+    .btn-copy{padding:5px 12px;background:#f0f0f0;color:#333;border:none;border-radius:6px;font-size:12px;cursor:pointer}
+    .btn-copy:hover{background:#e0e0e0}
+
+    /* Result banner */
+    .success-banner{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px 24px;margin-bottom:20px;text-align:center}
+    .success-banner h2{font-size:16px;font-weight:700;color:#15803d;margin-bottom:10px}
+    .btn-primary{padding:12px 24px;background:#111;color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;transition:background .15s}
+    .btn-primary:hover{background:#333}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="page-header">
+      <a href="/" class="btn-back">← Projets</a>
+      <h1>Nouveau projet</h1>
+    </div>
+
+    <div class="steps">
+      <div class="step active" id="step1" onclick="goStep(1)">1 — Analyser la conv</div>
+      <div class="step" id="step2" onclick="goStep(2)">2 — Compte-rendu</div>
+      <div class="step" id="step3" onclick="goStep(3)">3 — Résultats</div>
+    </div>
+
+    <!-- Étape 1 : Analyse -->
+    <div class="panel" id="panel1">
+      <div class="panel-body">
+        <div class="field">
+          <label>Source
+            <span class="field-hint">(canal de réception)</span>
+          </label>
+          <select id="convSource">
+            <option value="whatsapp">💬 WhatsApp</option>
+            <option value="email">📧 Email</option>
+            <option value="autre">📝 Autre</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Conversation du client
+            <span class="field-hint">— colle ici les messages bruts</span>
+          </label>
+          <textarea id="convTexte" placeholder="Colle la conversation ici (WhatsApp, email, messages…)"
+                    style="min-height:200px"></textarea>
+        </div>
+        <button class="btn-green" id="btnAnalyser" onclick="analyser()">
+          Analyser la conversation →
+        </button>
+      </div>
+    </div>
+
+    <!-- Étape 2 : Compte-rendu -->
+    <div class="panel" id="panel2" style="display:none">
+      <div class="panel-body">
+        <div id="crContent"></div>
+        <button class="btn-green" id="btnValider" onclick="valider()" style="margin-top:8px">
+          ✅ Valider et lancer les 4 agents (~30s)
+        </button>
+      </div>
+    </div>
+
+    <!-- Étape 3 : Résultats -->
+    <div id="panel3" style="display:none">
+      <div class="success-banner" id="successBanner" style="display:none">
+        <h2>✅ Projet créé</h2>
+        <div id="successNom" style="font-size:14px;color:#444;margin-bottom:16px"></div>
+        <a id="lienProjet" href="/" class="btn-primary">Voir le projet →</a>
+      </div>
+      <div id="resultatsContent"></div>
+    </div>
+  </div>
+
+  <script>
+    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+
+    let analyseData = null
+    let nomProjet   = null
+
+    // ── Navigation étapes ─────────────────────────────────
+    function goStep(n) {
+      for (let i=1; i<=3; i++) {
+        document.getElementById('step'+i).classList.toggle('active', i===n)
+      }
+    }
+
+    function setDone(n) {
+      document.getElementById('step'+n).classList.remove('active')
+      document.getElementById('step'+n).classList.add('done')
+    }
+
+    // ── Étape 1 : Analyser ────────────────────────────────
+    async function analyser() {
+      const texte  = document.getElementById('convTexte').value.trim()
+      const source = document.getElementById('convSource').value
+      if (!texte) { alert('Colle d\'abord la conversation.'); return }
+
+      const btn = document.getElementById('btnAnalyser')
+      btn.disabled = true; btn.textContent = 'Analyse en cours…'
+
+      try {
+        const res  = await fetch('/analyser-conversation', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ conversation: texte, source })
+        })
+        const data = await res.json()
+        if (data.erreur) { alert('Erreur : ' + data.erreur); return }
+
+        analyseData = data.analyse
+        afficherCompteRendu(data.analyse)
+        setDone(1)
+        goStep(2)
+        document.getElementById('panel1').style.display = 'none'
+        document.getElementById('panel2').style.display = 'block'
+      } catch(e) { alert('Erreur : ' + e.message) }
+
+      btn.disabled = false; btn.textContent = 'Analyser la conversation →'
+    }
+
+    // ── Étape 2 : Compte-rendu ────────────────────────────
+    function afficherCompteRendu(a) {
+      const e2 = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')
+      const fonct  = (a.fonctionnalites || []).join('\n')
+      const quest  = (a.questions || []).join('\n')
+      const contra = Object.entries(a.contraintes || {}).map(([k,v]) => `${k}: ${v}`).join('\n')
+
+      document.getElementById('crContent').innerHTML = `
+        <div class="cr-grid">
+          <div class="field cr-full">
+            <label>👤 Client identifié</label>
+            <input type="text" id="cr_client_nom" value="${e2(a.client_nom)}">
+          </div>
+          <div class="field cr-full">
+            <label>📁 Nom du projet
+              <span class="field-hint">— sera le titre dans la liste</span>
+            </label>
+            <input type="text" id="cr_nom_projet" value="${e2(a.nom_projet || a.client_nom || '')}">
+          </div>
+          <div class="field cr-full">
+            <label>🎯 Besoin principal</label>
+            <textarea id="cr_besoin" style="min-height:60px">${e2(a.besoin)}</textarea>
+          </div>
+          <div class="field">
+            <label>🔧 Type d'extension</label>
+            <input type="text" id="cr_type_extension" value="${e2(a.type_extension)}">
+          </div>
+          <div class="field">
+            <label>💬 Ton recommandé</label>
+            <input type="text" id="cr_ton" value="${e2(a.ton)}">
+          </div>
+          <div class="field cr-full">
+            <label>⚙️ Fonctionnalités <span class="field-hint">(une par ligne)</span></label>
+            <textarea id="cr_fonctionnalites" style="min-height:80px">${e2(fonct)}</textarea>
+          </div>
+          <div class="field">
+            <label>⚠️ Contraintes <span class="field-hint">(clé: valeur)</span></label>
+            <textarea id="cr_contraintes" style="min-height:60px">${e2(contra)}</textarea>
+          </div>
+          <div class="field">
+            <label>🎨 Style visuel</label>
+            <input type="text" id="cr_style" value="${e2(a.style)}">
+          </div>
+          <div class="field cr-full">
+            <label>❓ Questions à clarifier <span class="field-hint">(une par ligne)</span></label>
+            <textarea id="cr_questions" style="min-height:60px">${e2(quest)}</textarea>
+          </div>
+        </div>`
+    }
+
+    // ── Étape 3 : Valider ─────────────────────────────────
+    async function valider() {
+      const g = id => document.getElementById(id)
+      const editedAnalyse = {
+        client_nom:      g('cr_client_nom').value.trim(),
+        nom_projet:      g('cr_nom_projet').value.trim(),
+        besoin:          g('cr_besoin').value.trim(),
+        type_extension:  g('cr_type_extension').value.trim(),
+        ton:             g('cr_ton').value.trim(),
+        fonctionnalites: g('cr_fonctionnalites').value.split('\n').map(s=>s.trim()).filter(Boolean),
+        contraintes:     Object.fromEntries(
+          g('cr_contraintes').value.split('\n').filter(l=>l.includes(':'))
+            .map(l => { const i=l.indexOf(':'); return [l.slice(0,i).trim(), l.slice(i+1).trim()] })
+        ),
+        style:     g('cr_style').value.trim(),
+        questions: g('cr_questions').value.split('\n').map(s=>s.trim()).filter(Boolean),
+      }
+
+      const btn = g('btnValider')
+      btn.disabled = true; btn.textContent = '4 agents en parallèle… (~30s)'
+
+      try {
+        const res  = await fetch('/valider-conversation', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ analyse: editedAnalyse })
+        })
+        const data = await res.json()
+        if (data.erreur) { alert('Erreur : ' + data.erreur); return }
+
+        nomProjet = data.projet
+        afficherResultats(data)
+        setDone(2)
+        goStep(3)
+        g('panel2').style.display = 'none'
+        document.getElementById('panel3').style.display = 'block'
+      } catch(e) { alert('Erreur : ' + e.message) }
+
+      btn.disabled = false; btn.textContent = '✅ Valider et lancer les 4 agents (~30s)'
+    }
+
+    function afficherResultats(data) {
+      const sections = [
+        { key:'roadmap',         label:'📅 Roadmap projet' },
+        { key:'specs',           label:'⚙️ Specs techniques' },
+        { key:'brief_marketing', label:'📣 Brief design & App Store' },
+        { key:'email_client',    label:'📧 Email de confirmation client' },
+      ]
+
+      // Success banner
+      const banner = document.getElementById('successBanner')
+      document.getElementById('successNom').textContent = data.projet
+      const lien = document.getElementById('lienProjet')
+      lien.href = '/projet/' + encodeURIComponent(data.projet)
+      banner.style.display = 'block'
+
+      // Livrables
+      let html = ''
+      for (const s of sections) {
+        html += `
+          <div class="livrable">
+            <div class="livrable-head">
+              <span>${s.label}</span>
+              <button class="btn-copy" onclick="copier('livr_${s.key}', this)">📋 Copier</button>
+            </div>
+            <pre class="livrable-body" id="livr_${s.key}">${esc(data[s.key]||'')}</pre>
+          </div>`
+      }
+      document.getElementById('resultatsContent').innerHTML = html
+    }
+
+    function copier(id, btn) {
+      navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
+        btn.textContent = '✅ Copié!'
+        setTimeout(() => { btn.textContent = '📋 Copier' }, 2000)
+      })
+    }
+  </script>
+</body>
+</html>

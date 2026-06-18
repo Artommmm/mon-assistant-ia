@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Mes projets — Assistant IA</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:system-ui,sans-serif;background:#f5f5f5;min-height:100vh}
+    .wrap{max-width:1100px;margin:0 auto;padding:36px 24px}
+
+    /* Header */
+    .page-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:32px}
+    .page-header h1{font-size:24px;font-weight:700;color:#111}
+    .sub{font-size:13px;color:#999;margin-top:3px}
+    .btn-primary{padding:11px 22px;background:#111;color:white;border:none;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;text-decoration:none;display:inline-block;transition:background .15s}
+    .btn-primary:hover{background:#333}
+
+    /* Grid */
+    .projects-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:32px}
+
+    /* Cards */
+    .project-card{background:white;border-radius:14px;padding:22px;box-shadow:0 1px 4px rgba(0,0,0,.07);cursor:pointer;transition:box-shadow .15s,transform .12s;border:1.5px solid #f0f0f0;text-decoration:none;display:flex;flex-direction:column;gap:14px;color:inherit}
+    .project-card:hover{box-shadow:0 6px 24px rgba(0,0,0,.1);transform:translateY(-2px);border-color:#e0e0e0}
+    .card-new{border:2px dashed #ddd;background:white;border-radius:14px;padding:22px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:190px;text-decoration:none}
+    .card-new:hover{border-color:#111;background:#fafafa}
+
+    /* Card internals */
+    .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+    .card-name{font-size:15px;font-weight:600;color:#111;line-height:1.35;flex:1;min-width:0;word-break:break-word}
+    .badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;flex-shrink:0;white-space:nowrap}
+    .badge-green{background:#dcfce7;color:#15803d}
+    .card-meta{display:flex;flex-direction:column;gap:5px}
+    .card-meta-row{font-size:12px;color:#777;display:flex;align-items:center;gap:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .progress-section{display:flex;flex-direction:column;gap:6px}
+    .progress-row{display:flex;justify-content:space-between;align-items:center}
+    .progress-phase{font-size:11px;color:#666}
+    .progress-pct{font-size:12px;font-weight:600;color:#111}
+    .progress-track{height:4px;background:#f0f0f0;border-radius:3px;overflow:hidden}
+    .progress-fill{height:100%;background:#111;border-radius:3px;transition:width .4s}
+
+    /* Toolbar */
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap}
+    .tool-btn{padding:9px 16px;background:white;color:#555;border:1px solid #e0e0e0;border-radius:9px;font-size:13px;cursor:pointer;text-decoration:none;transition:all .15s}
+    .tool-btn:hover{background:#f0f0f0;color:#111;border-color:#ccc}
+
+    /* States */
+    .loading{grid-column:1/-1;text-align:center;padding:60px;color:#bbb;font-size:14px}
+    .empty{text-align:center;padding:80px 20px;grid-column:1/-1}
+    .empty-icon{font-size:44px;margin-bottom:16px}
+    .empty h2{font-size:18px;color:#888;font-weight:500;margin-bottom:20px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="page-header">
+      <div>
+        <h1>Mes projets</h1>
+        <div class="sub" id="subtitle">Chargement…</div>
+      </div>
+      <a href="/nouveau-projet" class="btn-primary">+ Nouveau projet</a>
+    </div>
+
+    <div id="grid" class="projects-grid">
+      <div class="loading">Chargement des projets…</div>
+    </div>
+
+    <div class="toolbar">
+      <a href="/dashboard" class="tool-btn">📊 Dashboard</a>
+      <a href="/chat-libre" class="tool-btn">🤖 Agent auto</a>
+      <a href="/chat-libre" class="tool-btn">💬 Chat libre</a>
+      <a href="/chat-libre" class="tool-btn">🎨 Design</a>
+    </div>
+  </div>
+
+  <script>
+    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+
+    function cardHTML(p) {
+      const meta = [
+        p.client && p.client !== '—' ? `<div class="card-meta-row">👤 ${esc(p.client)}</div>` : '',
+        p.budget && p.budget !== '—' ? `<div class="card-meta-row">💰 ${esc(p.budget)}</div>` : '',
+        p.type_extension && p.type_extension !== '—'
+          ? `<div class="card-meta-row">🔧 ${esc(p.type_extension.length > 44 ? p.type_extension.slice(0,41)+'…' : p.type_extension)}</div>`
+          : '',
+      ].filter(Boolean).join('')
+
+      return `
+        <a href="/projet/${encodeURIComponent(p.nom)}" class="project-card">
+          <div class="card-top">
+            <div class="card-name">${esc(p.nom)}</div>
+            <span class="badge badge-green">En cours</span>
+          </div>
+          ${meta ? `<div class="card-meta">${meta}</div>` : ''}
+          <div class="progress-section">
+            <div class="progress-row">
+              <span class="progress-phase">${esc(p.phase_actuelle)}</span>
+              <span class="progress-pct">${p.progression}%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" style="width:${p.progression}%"></div>
+            </div>
+          </div>
+        </a>`
+    }
+
+    async function charger() {
+      try {
+        const res    = await fetch('/projets-data')
+        const projets = await res.json()
+        const grid   = document.getElementById('grid')
+        const sub    = document.getElementById('subtitle')
+        sub.textContent = projets.length + ' projet' + (projets.length !== 1 ? 's' : '')
+
+        if (projets.length === 0) {
+          grid.innerHTML = `
+            <div class="empty">
+              <div class="empty-icon">📁</div>
+              <h2>Aucun projet pour l'instant</h2>
+              <a href="/nouveau-projet" class="btn-primary">+ Créer ton premier projet</a>
+            </div>`
+          return
+        }
+
+        grid.innerHTML = projets.map(p => cardHTML(p)).join('') + `
+          <a href="/nouveau-projet" class="card-new">
+            <div style="font-size:32px;color:#ccc">＋</div>
+            <div style="font-size:14px;color:#aaa;font-weight:500">Nouveau projet</div>
+          </a>`
+      } catch(e) {
+        document.getElementById('grid').innerHTML = `<div class="loading">Erreur : ${esc(e.message)}</div>`
+      }
+    }
+
+    charger()
+  </script>
+</body>
+</html>

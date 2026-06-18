@@ -1,0 +1,253 @@
+{
+  "projets": [
+    "Extension Shopify",
+    "extension Shopify",
+    "Création d'applications Shopify pour la niche de santé",
+    "Application de gestion d'inventaire avancée pour Shopify",
+    "Application de fidélisation client personnalisée pour les boutiques Shopify",
+    "Shopify",
+    "App Shopify de fidélisation client",
+    "Application Shopify",
+    "null",
+    "Application Shopify d'upsell automatique",
+    "shopify-upsell-app",
+    "Application Shopify Statistiques",
+    "Antoine-dev-store",
+    "Réduire l'abandon de panier sur la boutique Shopify",
+    "Créer une extension pour réduire l'abandon de panier sur une",
+    "Afficher un badge 'Bientôt épuisé' sur les produits avec moi",
+    "Léopold — Comparaison Packraft"
+  ],
+  "decisions": [
+    "Investir dans la création d'applications pour la santé pour les boutiques Shopify en 2026 en raison du faible nombre d'applications concurrentes existantes",
+    "Développer une application de fidélisation client personnalisée pour les boutiques Shopify",
+    "Développer une application de comparaison des produits",
+    "Lancer le projet d'app de fidélisation client pour Shopify après analyse approfondie du marché",
+    "Créer un modèle de base pour l'application Shopify et développer une feuille de route pour le processus de développement",
+    "null",
+    "Lancer le développement de l'application",
+    "Développer l'application pour aider les marchands à augmenter leurs ventes et leur revenu",
+    "créer une page Notion pour le projet",
+    "Créer une application pour analyser les statistiques des boutiques Shopify",
+    "Développer une application pour fournir des statistiques détaillées",
+    "Brief validé : Réduire l'abandon de panier sur la boutique Shopify",
+    "Brief validé : Créer une extension pour réduire l'abandon de panier sur une",
+    "Brief validé : Afficher un badge 'Bientôt épuisé' sur les produits avec moi",
+    "Brief validé : Léopold — Comparaison Packraft"
+  ],
+  "historique": [
+    {
+      "date": "2026-06-02T21:27:33.263727",
+      "message": "Je travaille sur une extension Shopify",
+      "agent": "Dev"
+    },
+    {
+      "date": "2026-06-02T21:28:18.939244",
+      "message": "Fais une analyse complète de ce projet avec tous tes agents",
+      "agent": "Synthèse multi-agents"
+    },
+    {
+      "date": "2026-06-02T21:29:21.056516",
+      "message": "Rappelle-moi sur quoi je travaille",
+      "agent": "Synthèse multi-agents"
+    },
+    {
+      "date": "2026-06-02T21:37:15.109688",
+      "message": "Cherche les meilleures extensions Shopify pour augmenter les ventes en 2026",
+      "agent": "Recherche"
+    },
+    {
+      "date": "2026-06-02T21:38:18.193421",
+      "message": "Écris et exécute un code Python qui calcule les 10 premiers nombres premiers",
+      "agent": "Recherche"
+    },
+    {
+      "date": "2026-06-02T21:38:58.527254",
+      "message": "Crée un fichier roadmap.md pour mon projet d'extension Shopify",
+      "agent": "Projet"
+    },
+    {
+      "date": "2026-06-02T21:54:53.655068",
+      "message": "Cherche les niches d'apps Shopify les moins couvertes et les plus rentables en 2026",
+      "agent": "Recherche"
+    },
+    {
+      "date": "2026-06-02T21:56:43.093071",
+      "message": "Cherche les avis négatifs des apps de gestion d'inventaire Shopify pour trouver ce qui manque",
+      "agent": "Recherche"
+    },
+    {
+      "date": "2026-06-02T21:58:04.617129",
+      "message": "Analyse le marché des apps Shopify pour la fidélisation client et trouve une opportunité",
+      "agent": "Recherche"
+    },
+    {
+      "date": "2026-06-02T22:10:50.613032",
+      "message": "Analyse le marché des apps Shopify de comparaison des produits et trouve la meilleure opportunité",
+      "agent": "Shopify Expert"
+    },
+    {
+      "date": "2026-06-03T10:46:10.941277",
+      "message": "Je veux créer et lancer une app Shopify de fidélisation client, analyse le marché, génère le code de base, prépare la fiche App Store et crée la roadmap",
+      "agent": "Synthèse multi-agents"
+    },
+    {
+      "date": "2026-06-03T10:50:03.213763",
+      "message": "Génère moi le code complet pour créer une nouvelle app Shopify avec Shopify CLI, avec l'authentification OAuth et une première page Polaris",
+      "agent": "Dev"
+    },
+    {
+      "date": "2026-06-03T10:52:18.791771",
+      "message": "Génère le code de base d'une app Shopify et crée la roadmap de développement",
+      "agent": "Synthèse multi-agents"
+    },
+    {
+      "date": "2026-06-03T10:52:43.536307",
+      "message": "Analyse le marché des apps SEO Shopify et rédige un email de prospection pour un client marchand",
+      "agent": "Synthèse multi-agents"
+    },
+    {
+      "date": "2026-06-03T10:53:07.431700",
+      "message": "Je veux lancer une app Shopify d'upsell automatique, analyse le marché, code le MVP, prépare la fiche App Store et la roadmap",
+      "agent": "Synthèse multi-agents"
+    },
+    {
+      "date": "2026-06-03T11:06:07.145671",
+      "message": "Montre-moi la liste de mes repos GitHub",
+      "agent": "Dev"
+    },
+    {
+      "date": "2026-06-03T11:06:17.390848",
+      "message": "Crée un repo GitHub public appelé \"shopify-upsell-app\" avec la description \"App Shopify d'upsell automatique\"",
+      "agent": "Dev"
+    },
+    {
+      "date": "2026-06-03T11:31:56.620666",
+      "message": "Sauvegarde une analyse du marché des apps Shopify d'upsell dans Notion",
+      "agent": "Recherche"
+    },
+    {
+      "date": "2026-06-03T11:32:37.739060",
+      "message": "Crée une page Notion pour mon projet shopify-upsell-app avec la roadmap",
+      "agent": "Projet"
+    },
+    {
+      "date": "2026-06-03T11:37:58.156340",
+      "message": "Crée une page Notion pour mon projet shopify-upsell-app avec la roadmap",
+      "agent": "Projet"
+    },
+    {
+      "date": "2026-06-03T11:47:24.739824",
+      "message": "Crée une page Notion pour mon projet shopify-upsell-app avec la roadmap complète",
+      "agent": "Projet"
+    },
+    {
+      "date": "2026-06-03T11:55:23.042235",
+      "message": "Envoie un email de test à lesquerantoine@gmail.com avec le sujet \"Test assistant IA\" et dis que le système fonctionne",
+      "agent": "Communication"
+    },
+    {
+      "date": "2026-06-03T12:20:07.261295",
+      "message": "Montre-moi les statistiques de ma boutique Shopify",
+      "agent": "Recherche"
+    },
+    {
+      "date": "2026-06-03T12:20:32.170413",
+      "message": "Liste mes produits Shopify",
+      "agent": "Dev"
+    },
+    {
+      "date": "2026-06-03T12:21:03.405741",
+      "message": "Montre-moi mes clients Shopify",
+      "agent": "Synthèse multi-agents"
+    },
+    {
+      "date": "2026-06-03T12:30:41.720380",
+      "message": "Montre-moi les statistiques de ma boutique Shopify",
+      "agent": "Recherche"
+    },
+    {
+      "date": "2026-06-03T12:41:13.274933",
+      "message": "Montre-moi les statistiques de ma boutique Shopify",
+      "agent": "Shopify Manager"
+    },
+    {
+      "date": "2026-06-03T12:45:20.822974",
+      "message": "Montre-moi les statistiques de ma boutique Shopify",
+      "agent": "Shopify Manager"
+    },
+    {
+      "date": "2026-06-15T16:27:06.936399",
+      "message": "Analyse conversation → Réduire l'abandon de panier sur la boutique Shopify",
+      "agent": "Analyse Client"
+    },
+    {
+      "date": "2026-06-15T17:46:52.523902",
+      "message": "Analyse conversation → Créer une extension pour réduire l'abandon de panier sur une",
+      "agent": "Analyse Client"
+    },
+    {
+      "date": "2026-06-16T16:13:57.253857",
+      "message": "Analyse conversation → Afficher un badge 'Bientôt épuisé' sur les produits avec moi",
+      "agent": "Analyse Client"
+    },
+    {
+      "date": "2026-06-16T16:54:24.292834",
+      "message": "Analyse conversation → Léopold — Comparaison Packraft",
+      "agent": "Analyse Client"
+    }
+  ],
+  "veille_hebdo": [
+    {
+      "date": "2026-06-15T17:13:30.913310",
+      "semaine": "Semaine 25",
+      "analyse": "Voici 3 opportunités d'apps Shopify identifiées à partir des résultats :\n\n## Opportunité 1 : App de personnalisation de produits avec IA\nL'opportunité d'app de personnalisation de produits avec IA est mentionnée dans les résultats, en particulier dans le contexte de l'utilisation de l'IA pour améliorer l'expérience client. Cette opportunité pourrait être explorée en développant une app qui utilise l'IA pour proposer des produits personnalisés aux clients en fonction de leurs préférences et de leurs comportements d'achat.\n\n* Marché actuel : Les apps de personnalisation de produits existent déjà, mais il y a une opportunité pour une app qui utilise l'IA pour améliorer la personnalisation.\n* Différentiation possible : L'utilisation de l'IA pour proposer des produits personnalisés de manière plus précise et proactive.\n* Modèle de revenus recommandé : Freemium ou abonnement.\n* Complexité technique : Élevée.\n\n## Opportunité 2 : App d'automatisation du service client\nL'opportunité d'app d'automatisation du service client est mentionnée dans les résultats, en particulier dans le contexte de l'utilisation de l'automatisation pour améliorer l'expérience client. Cette opportunité pourrait être explorée en développant une app qui utilise l'automatisation pour répondre aux questions courantes des clients et pour aider les marchands à gérer leurs interactions avec les clients.\n\n* Marché actuel : Les apps de service client existent déjà, mais il y a une opportunité pour une app qui utilise l'automatisation pour améliorer le service client.\n* Différentiation possible : L'utilisation de l'automatisation pour répondre aux questions courantes des clients et pour aider les marchands à gérer leurs interactions avec les clients.\n* Modèle de revenus recommandé : Freemium ou abonnement.\n* Complexité technique : Moyenne.\n\n## Opportunité 3 : App de gestion multi-boutiques\nL'opportunité d'app de gestion multi-boutiques est mentionnée dans les résultats, en particulier dans le contexte de l'utilisation de la gestion multi-boutiques pour améliorer la gestion des ventes en ligne. Cette opportunité pourrait être explorée en développant une app qui permet aux marchands de gérer plusieurs boutiques en ligne de manière centralisée.\n\n* Marché actuel : Les apps de gestion multi-boutiques existent déjà, mais il y a une opportunité pour une app qui propose une solution plus complète et plus intégrée.\n* Différentiation possible : L'utilisation d'une interface utilisateur intuitive et facile à utiliser pour gérer plusieurs boutiques en ligne.\n* Modèle de revenus recommandé : Abonnement.\n* Complexité technique : Élevée.\n\nProchaine étape concrète cette semaine : Réaliser une analyse plus approfondie des concurrents et des besoins des marchands pour chaque opportunité, et identifier les technologies et les ressources nécessaires pour développer chaque app."
+    }
+  ],
+  "agent_executions": [
+    {
+      "task": "veille_app_store",
+      "date": "2026-06-15T17:13:35.700259",
+      "statut": "✅ Semaine 25"
+    }
+  ],
+  "projets_meta": {
+    "Afficher un badge 'Bientôt épuisé' sur les produits avec moi": {
+      "client": "Non identifié",
+      "budget": "600€",
+      "delai": "Non précisé",
+      "type_extension": "Extension de gestion de stock et d'affichage de badge"
+    },
+    "Léopold — Comparaison Packraft": {
+      "client": "Léopold",
+      "budget": "null",
+      "delai": "null",
+      "type_extension": "Extension de comparaison de produits",
+      "date_livraison": "—",
+      "_notion_page_id": "381b6562-6b52-8176-a8e5-c241a48967c6"
+    }
+  },
+  "phases": {
+    "Afficher un badge 'Bientôt épuisé' sur les produits avec moi": {
+      "phase_1": false
+    }
+  },
+  "projets_content": {
+    "Léopold — Comparaison Packraft": {
+      "brief": "Créer un système de recommandation de packrafts personnalisés pour les clients",
+      "roadmap": "Pour répondre au brief client validé, j'ai créé une roadmap détaillée pour le projet de système de recommandation de packrafts personnalisés. Cette roadmap est divisée en quatre phases principales : Specs, Dev, Tests et Publication. Chaque phase est décomposée en tâches spécifiques, avec des priorités et des durées approximatives.\n\n**Phase 1 : Specs (4 semaines)**\n\n1. **Définition des exigences fonctionnelles** (1 semaine, Priorité : Haute)\n * Identifier les fonctionnalités clés du système de recommandation de packrafts personnalisés\n * Définir les types d'utilisation et les pratiques des clients\n * Créer un tableau de bord pour les filtres de comparaison\n2. **Conception de la galerie photo** (1 semaine, Priorité : Moyenne)\n * Créer des wireframes pour la galerie photo dans la comparaison\n * Définir les formats d'image et les tailles pour la galerie photo\n3. **Intégration avec l'IA** (1 semaine, Priorité : Haute)\n * Rechercher et sélectionner une API d'IA pour interagir avec les clients\n * Définir les règles d'interaction avec l'IA\n4. **Création d'un prototype** (1 semaine, Priorité : Moyenne)\n * Créer un prototype fonctionnel du système de recommandation de packrafts personnalisés\n\n**Phase 2 : Dev (12 semaines)**\n\n1. **Développement de l'extension de comparaison de produits** (4 semaines, Priorité : Haute)\n * Créer l'extension de comparaison de produits en utilisant Remix et Node.js\n * Intégrer la galerie photo et les filtres de comparaison\n2. **Intégration de l'IA** (4 semaines, Priorité : Haute)\n * Intégrer l'API d'IA sélectionnée dans l'extension\n * Développer les règles d'interaction avec l'IA\n3. **Création de la galerie photo** (2 semaines, Priorité : Moyenne)\n * Développer la galerie photo en utilisant Polaris\n * Intégrer les formats d'image et les tailles définis dans la phase Specs\n4. **Lien pour ajouter au panier** (2 semaines, Priorité : Moyenne)\n * Créer le lien pour ajouter au panier en bas de chaque colonne\n\n**Phase 3 : Tests (4 semaines)**\n\n1. **Tests unitaires** (1 semaine, Priorité : Haute)\n * Écrire des tests unitaires pour les fonctionnalités clés de l'extension\n2. **Tests d'intégration** (1 semaine, Priorité : Haute)\n * Écrire des tests d'intégration pour l'extension et l'IA\n3. **Tests de fonctionnalité** (1 semaine, Priorité : Moyenne)\n * Écrire des tests de fonctionnalité pour les filtres de comparaison et la galerie photo\n4. **Tests de performance** (1 semaine, Priorité : Moyenne)\n * Écrire des tests de performance pour l'extension\n\n**Phase 4 : Publication (2 semaines)**\n\n1. **Préparation de la publication** (1 semaine, Priorité : Haute)\n * Créer un package pour la publication de l'extension\n * Définir les métadonnées pour la publication\n2. **Publication sur l'App Store** (1 semaine, Priorité : Haute)\n * Soumettre l'extension à l'App Store de Shopify\n * Attendre l'approbation de l'extension\n\nLa durée totale de ce projet est estimée à 22 semaines, soit environ 5 mois et demi.\n\nPour sauvegarder cette roadmap dans Notion, voici la commande :\n\n✅ Page Notion créée : https://app.notion.com/p/Roadmap-Packrafts-Personnalis-s-381b65626b5281bf9b7ac006828fc49e\n",
+      "specs": "**Specs Techniques Complètes**\n\n**Introduction**\n\nLe but de ce projet est de créer un système de recommandation de packrafts personnalisés pour les clients d'une boutique en ligne Shopify. L'extension sera conçue pour aider les clients à comparer différents packrafts en fonction de leur pratique et de leurs préférences.\n\n**Architecture**\n\nL'architecture du système sera basée sur le framework Remix, avec Node.js comme serveur et Polaris comme UI. L'authentification OAuth 2.0 sera utilisée pour interactir avec l'API Shopify.\n\n*   Frontend : Remix avec Polaris UI\n*   Backend : Node.js avec @shopify/shopify-api\n*   DB : Prisma + SQLite (dev) / PostgreSQL (prod)\n*   Hosting : Fly.io ou Render\n\n**Stack Recommandé**\n\nLe stack recommandé pour ce projet est :\n\n*   Framework : Remix\n*   UI : Polaris\n*   Auth : OAuth 2.0 via @shopify/shopify-api\n*   DB : Prisma + SQLite (dev) / PostgreSQL (prod)\n*   Hosting : Fly.io ou Render\n\n**API Shopify Nécessaires**\n\nLes API Shopify nécessaires pour ce projet sont :\n\n*   REST Admin API : /admin/api/2024-01/\n*   GraphQL Admin API : /admin/api/2024-01/graphql.json\n*   Scopes courants : read_products, write_products, read_customers\n\nLes endpoints spécifiques qui seront utilisés sont :\n\n*   `GET /products/{product_id}` pour récupérer les informations d'un produit\n*   `GET /products` pour récupérer la liste des produits\n*   `POST /products` pour créer un nouveau produit\n*   `PUT /products/{product_id}` pour mettre à jour un produit\n*   `DELETE /products/{product_id}` pour supprimer un produit\n\n**Structure de Fichiers**\n\nLa structure de fichiers pour ce projet sera la suivante :\n\n*   `app/`\n    *   `components/`\n        *   `PackraftCard.js`\n        *   `ComparisonTable.js`\n        *   `Gallery.js`\n    *   `pages/`\n        *   `index.js`\n        *   `comparison.js`\n    *   `api/`\n        *   `shopify.js`\n    *   `utils/`\n        *   `ia.js`\n    *   `index.js`\n*   `config/`\n    *   `settings_schema.json`\n*   `public/`\n    *   `index.html`\n\n**Points Techniques Complexes à Anticiper**\n\nLes points techniques complexes à anticiper pour ce projet sont :\n\n*   L'intégration avec l'IA pour échanger avec le client\n*   La Personnalisation de la recommandation de packrafts en fonction de la pratique du client\n*   Le filtrage de comparaison par type d'utilisation\n*   La galerie photo dans la comparaison\n*   Le lien pour ajouter au panier en bas de chaque colonne\n*   L'interaction avec l'API Shopify pour récupérer et mettre à jour les informations des produits\n\n**Commandes d'Installation**\n\nLes commandes d'installation pour ce projet sont :\n\n*   `npm init @shopify/app` pour créer une nouvelle application Shopify\n*   `npm install` pour installer les dépendances\n*   `shopify app dev` pour lancer l'application en local\n*   `shopify app deploy` pour déployer l'application\n\n**Variables d'Environnement Nécessaires**\n\nLes variables d'environnement nécessaires pour ce projet sont :\n\n*   `SHOPIFY_API_KEY`\n*   `SHOPIFY_API_SECRET`\n*   `SHOPIFY_API_PASSWORD`\n*   `SHOPIFY_STORE_URL`\n\nCes variables d'environnement seront utilisées pour configurer l'authentification OAuth 2.0 et l'interaction avec l'API Shopify.\n\n**Code**\n\n<CODE>\n// app/components/PackraftCard.js\nimport React from 'react';\nimport {Link} from 'remix';\n\nconst PackraftCard = ({packraft}) => {\n  return (\n    <div>\n      <h2>{packraft.name}</h2>\n      <p>{packraft.description}</p>\n      <Link to={`/comparison/${packraft.id}`}>Comparer</Link>\n    </div>\n  );\n};\n\nexport default PackraftCard;\n</CODE>\n\n<CODE>\n// app/pages/comparison.js\nimport React, {useState, useEffect} from 'react';\nimport {useParams} from 'remix';\nimport PackraftCard from '../components/PackraftCard';\n\nconst ComparisonPage = () => {\n  const {id} = useParams();\n  const [packrafts, setPackrafts] = useState([]);\n  const [comparison, setComparison] = useState({});\n\n  useEffect(() => {\n    fetch(`/api/shopify/products/${id}`)\n      .then(response => response.json())\n      .then(data => setPackrafts(data));\n  }, [id]);\n\n  const handleComparison = (packraftId) => {\n    setComparison(packrafts.find(packraft => packraft.id === packraftId));\n  };\n\n  return (\n    <div>\n      <h1>Comparaison de packrafts</h1>\n      <ul>\n        {packrafts.map(packraft => (\n          <li key={packraft.id}>\n            <PackraftCard packraft={packraft} />\n            <button onClick={() => handleComparison(packraft.id)}>Comparer</button>\n          </li>\n        ))}\n      </ul>\n      {comparison && (\n        <div>\n          <h2>Comparaison de {comparison.name}</h2>\n          <p>{comparison.description}</p>\n        </div>\n      )}\n    </div>\n  );\n};\n\nexport default ComparisonPage;\n</CODE>\n\n<CODE>\n// config/settings_schema.json\n{\n  \"name\": \"Packraft Comparison\",\n  \"settings\": [\n    {\n      \"type\": \"color\",\n      \"id\": \"color_primary\",\n      \"label\": \"Couleur principale\",\n      \"default\": \"#000000\"\n    },\n    {\n      \"type\": \"font_picker\",\n      \"id\": \"type_header_font\",\n      \"label\": \"Police des titres\",\n      \"default\": \"helvetica_n4\"\n    }\n  ]\n}\n</CODE>\n\nNote : Le code ci-dessus est un exemple et peut nécessiter des modifications pour répondre aux besoins spécifiques de votre projet. Il est important de suivre les spécifications techniques et les conseils de sécurité pour développer une application Shopify sécurisée et efficace.",
+      "marketing": "**Brief Design et Fiche App Store**\n\n**Positionnement :**\nL'application se positionne comme un outil de recommandation personnalisée de packrafts pour les clients, aidant les marchands à augmenter les ventes et à améliorer l'expérience client.\n\n**Nom d'app suggéré :**\n\"Packraft Companion\"\n\n**Tagline :**\n\"Trouvez votre packraft idéal avec notre intelligence artificielle\"\n\n**Description courte (160 caractères) :**\n\"Découvrez votre packraft personnalisé avec notre IA et comparez facilement les modèles\"\n\n**Description longue :**\n\"Packraft Companion est une extension de comparaison de produits qui utilise l'intelligence artificielle pour recommander des packrafts personnalisés en fonction de la pratique du client. Avec notre outil, les clients peuvent filtrer les résultats par type d'utilisation, visualiser les différences entre les modèles grâce à notre galerie photo et ajouter directement au panier leur choix. Notre IA interactive échange avec les clients pour comprendre leurs besoins et leur proposer les meilleures options. Améliorez l'expérience client et augmentez vos ventes avec Packraft Companion.\"\n\n**5 arguments clés :**\n\n1. **Recommandation personnalisée** : notre IA analyse les préférences du client pour proposer les packrafts les plus adaptés.\n2. **Filtrage de comparaison** : les clients peuvent comparer facilement les modèles en fonction de leur type d'utilisation.\n3. **Galerie photo** : visualisez les différences entre les modèles avec notre galerie photo intégrée à la comparaison.\n4. **Interaction avec l'IA** : notre IA échange avec les clients pour comprendre leurs besoins et leur proposer les meilleures options.\n5. **Intégration au panier** : les clients peuvent ajouter directement au panier leur choix sans quitter la page de comparaison.\n\n**Style visuel recommandé :**\nUn design ultra-intuitif et collaboratif, avec des couleurs inspirées de la nature (verts, bleus, etc.) et des éléments de design minimaliste pour mettre en avant les fonctionnalités de l'application. Les icônes et les boutons doivent être clairs et faciles à utiliser. La typographie doit être moderne et lisible.\n\n**Fiche App Store :**\n\n* **Titre** : Packraft Companion\n* **Tagline** : Trouvez votre packraft idéal avec notre intelligence artificielle\n* **Description courte** : Découvrez votre packraft personnalisé avec notre IA et comparez facilement les modèles\n* **Description longue** : (voir ci-dessus)\n* **Capture d'écran** : une capture d'écran de la page de comparaison avec la galerie photo et les liens pour ajouter au panier.\n* **Légende** : \"Comparez facilement les packrafts et trouvez votre modèle idéal avec Packraft Companion\"",
+      "email": "\n✅ Email envoyé à client@example.com — Sujet : Confirmation de votre projet de personnalisation de packrafts\n",
+      "historique": "[16/06/2026 17:13] Q: Quelles sont les prochaines étapes ?\nR (Projet): Maintenant que nous avons défini les phases principales du projet, nous allons détailler les prochaines étapes pour chaque phase. Voici une vue d'ensemble des prochaines étapes :\n\n**Phase 1 : Specs (4 semaines)**\n\n1. **Définition des exigences fonctionnelles** (1 semaine) :\n * Identifier les fonctionnalités clés du système de recommandation de packrafts personnalisés\n * Définir les critères de recommandation (par exemple, taille, matériau, poids, etc.)\n * Créer un document de spécifications fonctionnelles\n2. **Recherche et analyse des données** (1 semaine) :\n * Rassembler les données sur les packrafts existants (caractéristiques, prix, etc.)\n * Analyser les données pour identifier les tendances et les patrons\n * Créer un rapport d'analyse des données\n3. **Conception de l'interface utilisateur** (1 semaine) :\n * Créer des maquettes de l'interface utilisateur pour le système de recommandation\n * Définir les éléments d'interface utilisateur (par exemple, boutons, formulaires, etc.)\n * Créer un document de conception de l'interface utilisateur\n4. **Spécifications techniques** (1 semaine) :\n * Définir les exigences techniques pour le système de recommandation (par exemple, langages de programmation, bases de données, etc.)\n * Créer un document de spécifications techniques\n\n**Phase 2 : Dev** (en attente des spécifications)\n\nNous allons attendre la fin de la phase de spécifications pour commencer la phase de développement.\n\nJe vais ajouter ces informations à notre page de projet Notion :\n\n✅ Contenu ajouté dans le projet Notion"
+    },
+    "Afficher un badge 'Bientôt épuisé' sur les produits avec moi": {
+      "brief": "Afficher un badge 'Bientôt épuisé' sur les produits avec moins de 10 unités en stock",
+      "specs": "— 16/06/2026 16:13 —\n\n**Spécifications Techniques Complètes**\n\n**Résumé du Projet**\n\nLe projet consiste à développer une extension de gestion de stock et d'affichage de badge pour les produits Shopify. L'extension doit afficher un badge \"Bientôt épuisé\" sur les produits avec moins de 10 unités en stock. Le seuil de stock pour déclencher le badge est personnalisable.\n\n**Architecture**\n\n* Le projet sera développé en utilisant le framework Remix avec Node.js comme langage de programmation principal.\n* L'interface utilisateur sera créée avec les composants Polaris officiels de Shopify.\n* L'authentification OAuth 2.0 sera utilisée pour accéder à l'API Shopify, via la bibliothèque `@shopify/shopify-api`.\n* La base de données sera gérée avec Prisma et SQLite pour le développement, et PostgreSQL pour la production.\n* L'hébergement sera effectué sur Fly.io ou Render, qui offrent des options gratuites pour démarrer.\n\n**Stack Recommandé**\n\n* Framework : Remix\n* Langage de programmation : Node.js\n* Interface utilisateur : Polaris (composants officiels Shopify)\n* Authentification : OAuth 2.0 via `@shopify/shopify-api`\n* Base de données : Prisma + SQLite (dev) / PostgreSQL (prod)\n* Hébergement : Fly.io ou Render\n\n**API Shopify Nécessaires**\n\n* API REST Admin : `/admin/api/2024-01/`\n* API GraphQL Admin : `/admin/api/2024-01/graphql.json`\n* Scopes nécessaires : `read_products`, `read_inventory`\n\n**Structure de Fichiers**\n\n* `app/`\n\t+ `components/`\n\t\t- `BadgeEpuise.js` (composant pour afficher le badge \"Bientôt épuisé\")\n\t\t- `ProductCard.js` (composant pour afficher les informations du produit)\n\t+ `services/`\n\t\t- `shopify.js` (service pour interagir avec l'API Shopify)\n\t\t- `inventory.js` (service pour gérer l'inventaire)\n\t+ `utils/`\n\t\t- `constants.js` (fichier de constantes)\n\t\t- `helpers.js` (fichier d'aide pour les fonctions utilitaires)\n\t+ `index.js` (point d'entrée de l'application)\n* `config/`\n\t+ `setti\n\nngs_schema.json` (fichier de configuration pour les paramètres de l'application)\n* `public/`\n\t+ `index.html` (fichier HTML pour l'application)\n\n**Points Techniques Complexes à Anticiper**\n\n* L'implémentation de l'authentification OAuth 2.0 pour accéder à l'API Shopify.\n* La gestion de l'inventaire en temps réel pour afficher le badge \"Bientôt épuisé\" sur les produits.\n* La personnalisation du seuil de stock pour déclencher le badge.\n* L'intégration avec les composants Polaris pour créer une interface utilisateur cohérente.\n\n**Commandes d'Installation**\n\n* `npm install` pour installer les dépendances.\n* `shopify app dev` pour lancer l'application en local.\n* `shopify app deploy` pour déployer l'application sur Fly.io ou Render.\n\n**Variables d'Environnement Nécessaires**\n\n* `SHOPIFY_API_KEY` pour l'API key de Shopify.\n* `SHOPIFY_API_SECRET` pour le secret de l'API de Shopify.\n* `SHOPIFY_STORE_URL` pour l'URL de la boutique Shopify.\n\n**Code Exemple**\n\n```javascript\n// services/shopify.js\nimport { Shopify } from '@shopify/shopify-api';\n\nconst shopify = new Shopify({\n  apiVersion: '2024-01',\n  apiKey: process.env.SHOPIFY_API_KEY,\n  apiSecretKey: process.env.SHOPIFY_API_SECRET,\n  storeUrl: process.env.SHOPIFY_STORE_URL,\n});\n\nexport const getProducts = async () => {\n  const products = await shopify.product.list({\n    limit: 10,\n  });\n  return products;\n};\n```\n\n```liquid\n<!-- components/ProductCard.liquid -->\n<div>\n  {{ product.title }}\n  {% if product.inventory_quantity < 10 %}\n    <span>Bientôt épuisé</span>\n  {% endif %}\n</div>\n```\n\n```json\n// config/settings_schema.json\n{\n  \"name\": \"Extension de gestion de stock et d'affichage de badge\",\n  \"settings\": [\n    {\n      \"type\": \"number\",\n      \"id\": \"seuil_de_stock\",\n      \"label\": \"Seuil de stock pour déclencher le badge\",\n      \"default\": 10\n    }\n  ]\n}\n```\n\nCe projet devrait être réalisable dans les 2 semaines imparti et de\n\nvrait coûter environ 600€. Les points techniques complexes à anticiper sont l'implémentation de l'authentification OAuth 2.0, la gestion de l'inventaire en temps réel et la personnalisation du seuil de stock pour déclencher le badge.",
+      "roadmap": "— 16/06/2026 16:13 —\n\nVoici la roadmap complète pour le projet Shopify :\n\n**Phase 1 : Specs (2 jours)**\n\n* Priorité : Haute\n* Tâches :\n + Définition des fonctionnalités et des exigences du projet\n + Création des wireframes et des maquettes pour le badge \"Bientôt épuisé\"\n + Définition du seuil de stock pour déclencher le badge (10 unités)\n + Recherche sur les API Shopify pour la vérification du niveau de stock en temps réel\n + Définition de la personnalisation du seuil de stock pour les marchands\n* Délivrables :\n + Document de spécifications techniques\n + Wireframes et maquettes pour le badge \"Bientôt épuisé\"\n + Liste des API Shopify nécessaires pour le projet\n\n**Phase 2 : Développement (8 jours)**\n\n* Priorité : Haute\n* Tâches :\n + Création de l'extension Shopify pour afficher le badge \"Bientôt épuisé\"\n + Intégration de l'API Shopify pour la vérification du niveau de stock en temps réel\n + Développement de la fonctionnalité de personnalisation du seuil de stock pour les marchands\n + Implémentation des wireframes et des maquettes pour le badge \"Bientôt épuisé\"\n + Tests unitaires et d'intégration pour s'assurer de la qualité du code\n* Délivrables :\n + Code de l'extension Shopify\n + Exemple de badge \"Bientôt épuisé\" fonctionnel\n\n**Phase 3 : Tests (2 jours)**\n\n* Priorité : Moyenne\n* Tâches :\n + Tests fonctionnels pour s'assurer que le badge \"Bientôt épuisé\" est affiché correctement\n + Tests de limite pour vérifier que le badge est déclenché au bon seuil de stock\n + Tests de personnalisation pour vérifier que les marchands peuvent configurer le seuil de stock\n + Tests de compatibilité pour s'assurer que l'extension fonctionne sur différents appareils et navigateurs\n* Délivrables :\n + Rapport de tests avec les résultats et les éventuelles erreurs\n\n**Phase 4 : Publication (1 jour)**\n\n* Priorité : Basse\n* Tâches :\n + Préparation du package de l'extension Shopify pour la soumission à l'App Store\n +\n\nRédaction de la description et des instructions pour les marchands\n + Soumission de l'extension à l'App Store Shopify\n* Délivrables :\n + Extension Shopify publiée sur l'App Store\n\nBudget alloué : 600€\nDélai : 2 semaines\n\nVoici le contenu de la page Notion pour sauvegarder ce projet :\n\n✅ Page Notion créée : https://app.notion.com/p/Roadmap-extension-Shopify-381b65626b5281d7b030c0ac9c339f33",
+      "email": "— 16/06/2026 16:54 —\n\nSujet : Confirmation de votre projet de personnalisation de packrafts\nDestinataire : client@example.com\n\nBonjour,\n\nJe vous remercie pour la confiance que vous avez placée en moi en me faisant part de votre besoin de créer un système de recommandation de packrafts personnalisés pour vos clients. J'ai bien compris que vous souhaitez offrir une expérience de vente en ligne ultra-intuitive et Collaborative, qui permette à vos clients de trouver le packraft adapté à leurs pratiques et à leurs besoins.\n\nPour résumer, nous nous sommes entendus sur les fonctionnalités suivantes :\n\n* Recommandation de packrafts en fonction de la pratique du client\n* Filtrage de comparaison par type d'utilisation\n* Galerie photo dans la comparaison\n* Lien pour ajouter au panier en bas de chaque colonne\n* Interaction avec une IA pour échanger avec le client\n\nJe trouve ce projet très intéressant et je suis convaincu que nous pouvons créer quelque chose de vraiment innovant et utile pour vos clients.\n\nPour les prochaines étapes, je propose que nous planifions un appel pour discuter des détails suivants :\n\n* La intégration de l'IA et la façon dont elle interagira avec les clients\n* Les spécifications techniques pour la galerie photo et le lien pour ajouter au panier\n* Les étapes de développement et les délais pour chaque fonctionnalité\n\nJe suis à votre disposition pour discuter de ces points et pour répondre à toutes vos questions. N'hésitez pas à me faire savoir si vous avez des préférences pour la date et l'heure de l'appel.\n\nJe suis impatient de collaborer avec vous pour créer ce système de recommandation de packrafts personnalisés et de contribuer à l'amélioration de l'expérience de vos clients.\n\nCordialement,\n[Votre nom]",
+      "devis": "",
+      "historique": "16/06/2026 — Projet créé depuis conversation client\n\n16/06/2026 — Mise à jour [🗺️ Roadmap détaillée]\n\n16/06/2026 — Mise à jour [⚙️ Specs techniques]\n\n— 16/06/2026 16:45 —\n\nSync manuel\n\n16/06/2026 — Mise à jour [💬 Communications]"
+    }
+  }
+}

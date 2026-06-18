@@ -64,8 +64,17 @@ github_auth = Auth.Token(os.getenv("GITHUB_TOKEN"))
 github_client = Github(auth=github_auth)
 github_username = os.getenv("GITHUB_USERNAME")
 
+def formater_notion_id(page_id):
+    """Assure que l'ID Notion est au format UUID avec tirets (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)."""
+    if not page_id:
+        return page_id
+    raw = page_id.strip().replace("-", "").replace(" ", "")
+    if len(raw) != 32:
+        return page_id  # Longueur inattendue, on retourne tel quel pour garder l'erreur explicite
+    return f"{raw[0:8]}-{raw[8:12]}-{raw[12:16]}-{raw[16:20]}-{raw[20:32]}"
+
 notion = NotionClient(auth=os.getenv("NOTION_TOKEN"))
-notion_page_id = os.getenv("NOTION_PAGE_ID")
+notion_page_id = formater_notion_id(os.getenv("NOTION_PAGE_ID"))
 
 # ── Mémoire ───────────────────────────────────────────────
 MEMOIRE_FILE = "memoire.json"
@@ -474,108 +483,447 @@ def shopify_lister_clients():
 SECTIONS_PROJET = {
     "brief":      "📋 Brief client",
     "specs":      "⚙️ Specs techniques",
-    "roadmap":    "🗺️ Roadmap",
+    "roadmap":    "🗺️ Roadmap détaillée",
     "email":      "💬 Communications",
     "devis":      "💰 Devis",
     "historique": "📝 Historique",
 }
 
+# Inverse map: Notion heading → content key
+_HEADING_TO_KEY = {v: k for k, v in SECTIONS_PROJET.items()}
+
+
+def _extraire_contenu_notion_page(page_id):
+    """Lit tous les blocs d'une page Notion et retourne un dict {key: text} par section."""
+    all_blocks = _list_all_blocks(page_id)
+    HEADING_TYPES = {"heading_1", "heading_2", "heading_3"}
+    sections = {}
+    current_heading = None
+    for block in all_blocks:
+        btype = block["type"]
+        if btype in HEADING_TYPES:
+            rt = block.get(btype, {}).get("rich_text", [])
+            current_heading = "".join(
+                t.get("text", {}).get("content", "") for t in rt
+            ).strip()
+            sections.setdefault(current_heading, [])
+        elif current_heading and btype == "paragraph":
+            rt = block.get("paragraph", {}).get("rich_text", [])
+            text = "".join(t.get("text", {}).get("content", "") for t in rt).strip()
+            if text:
+                sections[current_heading].append(text)
+    content = {}
+    for heading, paragraphs in sections.items():
+        key = _HEADING_TO_KEY.get(heading)
+        if key and paragraphs:
+            content[key] = "\n\n".join(paragraphs)
+    return content
+
+
+def _backfill_content_from_notion(nom_projet):
+    """Cherche la page Notion du projet, extrait son contenu et le sauvegarde dans memoire."""
+    if not notion:
+        return {}
+    try:
+        page_id = _trouver_page_enfant(nom_projet)
+        if not page_id:
+            return {}
+        content = _extraire_contenu_notion_page(page_id)
+        if content:
+            memoire = charger_memoire()
+            memoire.setdefault("projets_content", {})[nom_projet] = content
+            sauvegarder_memoire(memoire)
+        return content
+    except Exception:
+        return {}
+
+
+def _nt(content):
+    return {"type": "text", "text": {"content": content}}
+
+
+def _make_paragraph(text):
+    return {
+        "object": "block", "type": "paragraph",
+        "paragraph": {"rich_text": [_nt(text)] if text and text.strip() else []}
+    }
+
+
+def _make_heading(text, level=2):
+    h = f"heading_{level}"
+    return {"object": "block", "type": h, h: {"rich_text": [_nt(text)]}}
+
+
+def _make_todo(text, checked=False):
+    return {
+        "object": "block", "type": "to_do",
+        "to_do": {"rich_text": [_nt(text)], "checked": checked}
+    }
+
+
+def _make_callout(text, emoji="🟢", color="green_background"):
+    return {
+        "object": "block", "type": "callout",
+        "callout": {
+            "rich_text": [_nt(text)],
+            "icon": {"type": "emoji", "emoji": emoji},
+            "color": color
+        }
+    }
+
+
+def _paragraphs_from_text(text, max_chars=1900):
+    if not text or not text.strip():
+        return [_make_paragraph(" ")]
+    return [_make_paragraph(text[i:i+max_chars]) for i in range(0, len(text), max_chars)]
+
 
 def _trouver_page_enfant(titre_cible):
-    """Cherche une page enfant de la page principale par son titre (insensible à la casse)."""
-    try:
-        cursor = None
-        while True:
-            params = {"block_id": notion_page_id}
-            if cursor:
-                params["start_cursor"] = cursor
-            blocks = notion.blocks.children.list(**params)
-            for block in blocks.get("results", []):
-                if block["type"] == "child_page":
-                    titre_bloc = block.get("child_page", {}).get("title", "")
-                    if titre_bloc.strip().lower() == titre_cible.strip().lower():
-                        return block["id"]
-            if not blocks.get("has_more"):
-                break
-            cursor = blocks.get("next_cursor")
-    except Exception:
-        pass
+    """Cherche une page enfant par titre (insensible à la casse, ignore emoji préfixe)."""
+    def _norm(t):
+        t = t.strip()
+        while t and not t[0].isalnum():
+            t = t[1:].strip()
+        return t.lower()
+
+    cible_norm = _norm(titre_cible)
+    cursor = None
+    while True:
+        params = {"block_id": notion_page_id}
+        if cursor:
+            params["start_cursor"] = cursor
+        blocks = notion.blocks.children.list(**params)
+        for block in blocks.get("results", []):
+            if block["type"] == "child_page":
+                titre_bloc = block.get("child_page", {}).get("title", "")
+                if _norm(titre_bloc) == cible_norm:
+                    return block["id"]
+        if not blocks.get("has_more"):
+            break
+        cursor = blocks.get("next_cursor")
     return None
 
 
-def _mettre_a_jour_index_notion(nom_projet, page_projet_id):
-    """Crée ou met à jour la page INDEX Notion avec une ligne par projet."""
-    INDEX_TITRE = "🗂️ Index Projets"
-    try:
-        index_id = _trouver_page_enfant(INDEX_TITRE)
-        date_str = datetime.datetime.now().strftime("%d/%m/%Y")
-        page_url = f"https://www.notion.so/{page_projet_id.replace('-', '')}"
-        ligne = f"• {nom_projet} | En cours | {date_str} | {page_url}"
+def _list_all_blocks(block_id):
+    """Récupère tous les blocs enfants d'un bloc (paginé)."""
+    all_blocks = []
+    cursor = None
+    while True:
+        params = {"block_id": block_id}
+        if cursor:
+            params["start_cursor"] = cursor
+        resp = notion.blocks.children.list(**params)
+        all_blocks.extend(resp.get("results", []))
+        if not resp.get("has_more"):
+            break
+        cursor = resp.get("next_cursor")
+    return all_blocks
 
-        if not index_id:
-            notion.pages.create(
-                parent={"page_id": notion_page_id},
-                properties={"title": {"title": [{"type": "text", "text": {"content": INDEX_TITRE}}]}},
-                children=[
-                    {"object": "block", "type": "heading_1",
-                     "heading_1": {"rich_text": [{"type": "text", "text": {"content": INDEX_TITRE}}]}},
-                    {"object": "block", "type": "paragraph",
-                     "paragraph": {"rich_text": [{"type": "text", "text": {"content": "Projet | Statut | Date | Lien"}}]}},
-                    {"object": "block", "type": "divider", "divider": {}},
-                    {"object": "block", "type": "paragraph",
-                     "paragraph": {"rich_text": [{"type": "text", "text": {"content": ligne}}]}},
-                ]
-            )
+
+def _trouver_section_blocks(page_id, heading_text):
+    """Retourne (heading_block_id, last_block_id_in_section)."""
+    HEADING_TYPES = {"heading_1", "heading_2", "heading_3"}
+    all_blocks = _list_all_blocks(page_id)
+
+    heading_id = None
+    last_block_id = None
+    in_section = False
+
+    for block in all_blocks:
+        btype = block["type"]
+        if btype in HEADING_TYPES:
+            rich_text = block.get(btype, {}).get("rich_text", [])
+            text = "".join(rt.get("text", {}).get("content", "") for rt in rich_text)
+            if text.strip() == heading_text.strip():
+                heading_id = block["id"]
+                last_block_id = block["id"]
+                in_section = True
+            elif in_section:
+                break
+        elif in_section:
+            last_block_id = block["id"]
+
+    return heading_id, last_block_id
+
+
+def _mettre_a_jour_section_notion(page_id, section_titre, contenu, timestamp=None):
+    """Insère du contenu dans la bonne section de la page (après le dernier bloc de la section)."""
+    _, last_block_id = _trouver_section_blocks(page_id, section_titre)
+
+    new_blocks = []
+    if timestamp:
+        new_blocks.append(_make_paragraph(f"— {timestamp} —"))
+    new_blocks += _paragraphs_from_text(contenu)
+
+    try:
+        if last_block_id:
+            notion.blocks.children.append(page_id, children=new_blocks, after=last_block_id)
         else:
-            notion.blocks.children.append(
-                index_id,
-                children=[{"object": "block", "type": "paragraph",
-                            "paragraph": {"rich_text": [{"type": "text", "text": {"content": ligne}}]}}]
+            notion.blocks.children.append(page_id, children=new_blocks)
+    except Exception:
+        notion.blocks.children.append(page_id, children=new_blocks)
+
+
+def _mettre_a_jour_progression(page_id):
+    """Recalcule le % depuis les to_do et met à jour le bloc barre de progression."""
+    HEADING_TYPES = {"heading_1", "heading_2", "heading_3"}
+    all_blocks = _list_all_blocks(page_id)
+
+    total_todo = 0
+    checked_todo = 0
+    progression_para_id = None
+    in_progression = False
+
+    for block in all_blocks:
+        btype = block["type"]
+        if btype in HEADING_TYPES:
+            text = "".join(
+                rt.get("text", {}).get("content", "")
+                for rt in block.get(btype, {}).get("rich_text", [])
             )
+            in_progression = "📊 Progression" in text
+        elif btype == "paragraph" and in_progression and not progression_para_id:
+            progression_para_id = block["id"]
+            in_progression = False
+        elif btype == "to_do":
+            total_todo += 1
+            if block.get("to_do", {}).get("checked", False):
+                checked_todo += 1
+
+    if total_todo == 0 or not progression_para_id:
+        return
+
+    pct = int(checked_todo / total_todo * 100)
+    filled = min(pct // 10, 10)
+    barre = "▓" * filled + "░" * (10 - filled)
+    if pct < 25:
+        phase = "Phase 1 : Specs en cours"
+    elif pct < 50:
+        phase = "Phase 2 : Développement"
+    elif pct < 75:
+        phase = "Phase 3 : Tests"
+    else:
+        phase = "Phase 4 : Publication"
+
+    try:
+        notion.blocks.update(
+            progression_para_id,
+            paragraph={"rich_text": [_nt(f"{barre} {pct}% — {phase}")]}
+        )
     except Exception:
         pass
 
 
-def notion_sync_projet(nom_projet, type_action, contenu):
-    """Trouve ou crée la page projet Notion et ajoute le contenu dans la bonne section."""
+def _creer_page_projet_structuree(nom_projet, contenu, type_action, meta, date_courte):
+    """Crée une page Notion entièrement structurée et visuelle."""
+    client_nom     = meta.get("client", "—")
+    budget         = meta.get("budget", "—")
+    delai          = meta.get("delai", "—")
+    type_extension = meta.get("type_extension", "—")
+    date_livraison = meta.get("date_livraison", "—")
+
+    by_section = {k: " " for k in SECTIONS_PROJET}
+    section_key = type_action if type_action in SECTIONS_PROJET else "historique"
+    by_section[section_key] = (contenu or " ")[:1900]
+
+    callout_text = (
+        f"🟢 En cours · Client : {client_nom} · Budget : {budget} · "
+        f"Délai : {delai} · Livraison estimée : {date_livraison}"
+    )
+    hist_first = (
+        (contenu or "")[:1900]
+        if type_action == "historique"
+        else f"{date_courte} — Projet créé depuis conversation client"
+    )
+
+    children = [
+        _make_callout(callout_text),
+        _make_heading("📊 Progression"),
+        _make_paragraph("▓▓░░░░░░░░ 15% — Phase 1 : Specs en cours"),
+        _make_heading("🗺️ Phases du projet"),
+        _make_todo("Phase 1 — Specs & Design (15/06 → 22/06)"),
+        _make_todo("Phase 2 — Développement (22/06 → 03/07)"),
+        _make_todo("Phase 3 — Tests (03/07 → 06/07)"),
+        _make_todo("Phase 4 — Publication App Store"),
+        _make_heading("✅ Tâches immédiates"),
+        _make_todo("Brief client analysé", True),
+        _make_todo("Roadmap générée", True),
+        _make_todo("Specs techniques rédigées", True),
+        _make_todo("Wireframes validés par client"),
+        _make_todo("Design tokens extraits"),
+        _make_todo("Devis envoyé et signé"),
+        _make_heading("📋 Brief client"),
+        _make_paragraph(by_section["brief"]),
+        _make_heading("⚙️ Specs techniques"),
+        _make_paragraph(by_section["specs"]),
+        _make_heading("🗺️ Roadmap détaillée"),
+        _make_paragraph(by_section["roadmap"]),
+        _make_heading("💬 Communications"),
+        _make_paragraph(by_section["email"]),
+        _make_heading("💰 Devis"),
+        _make_paragraph(by_section["devis"]),
+        _make_heading("📝 Historique"),
+        _make_paragraph(hist_first),
+    ]
+
+    new_page = notion.pages.create(
+        parent={"page_id": notion_page_id},
+        properties={
+            "title": {"title": [{"type": "text", "text": {"content": f"🛍️ {nom_projet}"}}]}
+        },
+        children=children
+    )
+    return new_page["id"]
+
+
+def _mettre_a_jour_index_notion(nom_projet, page_projet_id, meta=None):
+    """Crée ou met à jour la page INDEX avec une ligne riche par projet."""
+    if meta is None:
+        meta = {}
+    if not any(v and v not in ("—", "") for v in meta.values()):
+        try:
+            m = charger_memoire()
+            meta = m.get("projets_meta", {}).get(nom_projet, meta)
+        except Exception:
+            pass
+
+    INDEX_TITRE = "🗂️ Index Projets"
+    index_id = _trouver_page_enfant(INDEX_TITRE)
+    date_str = datetime.datetime.now().strftime("%d/%m/%Y")
+    page_url = f"https://www.notion.so/{page_projet_id.replace('-', '')}"
+
+    client_nom = meta.get("client", "—")
+    budget     = meta.get("budget", "—")
+    delai      = meta.get("delai", "—")
+    type_ext   = meta.get("type_extension", "—")
+
+    ligne = (
+        f"🟢 {nom_projet} | {type_ext} | Client : {client_nom} | "
+        f"Budget : {budget} | Délai : {delai} | Créé le {date_str} | {page_url}"
+    )
+
+    if not index_id:
+        notion.pages.create(
+            parent={"page_id": notion_page_id},
+            properties={"title": {"title": [{"type": "text", "text": {"content": INDEX_TITRE}}]}},
+            children=[
+                _make_heading(INDEX_TITRE, level=1),
+                _make_paragraph("Statut | Projet | Type | Client | Budget | Délai | Date"),
+                {"object": "block", "type": "divider", "divider": {}},
+                _make_paragraph(ligne),
+            ]
+        )
+        return
+
+    all_blocks = _list_all_blocks(index_id)
+    existing_id = None
+    for block in all_blocks:
+        if block["type"] == "paragraph":
+            text = "".join(
+                rt.get("text", {}).get("content", "")
+                for rt in block.get("paragraph", {}).get("rich_text", [])
+            )
+            if nom_projet in text:
+                existing_id = block["id"]
+                break
+
+    if existing_id:
+        try:
+            notion.blocks.update(existing_id, paragraph={"rich_text": [_nt(ligne)]})
+        except Exception:
+            pass
+    else:
+        notion.blocks.children.append(index_id, children=[_make_paragraph(ligne)])
+
+
+def notion_sync_projet(nom_projet, type_action, contenu, meta=None):
+    """Sync structurée d'un projet vers Notion avec page visuelle complète."""
     if not notion_page_id or not os.getenv("NOTION_TOKEN"):
         return "⚠️ Notion non configuré"
+
+    if meta is None:
+        meta = {}
+
+    section_titre = SECTIONS_PROJET.get(type_action, "📝 Historique")
+    date_str    = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
+    date_courte = datetime.datetime.now().strftime("%d/%m/%Y")
+
     try:
-        section_titre = SECTIONS_PROJET.get(type_action, "📝 Historique")
-        page_id = _trouver_page_enfant(nom_projet)
-
-        # Créer la page structurée si elle n'existe pas
-        if not page_id:
-            children = []
-            for titre_section in SECTIONS_PROJET.values():
-                children.append({"object": "block", "type": "heading_2",
-                                  "heading_2": {"rich_text": [{"type": "text", "text": {"content": titre_section}}]}})
-                children.append({"object": "block", "type": "paragraph",
-                                  "paragraph": {"rich_text": [{"type": "text", "text": {"content": ""}}]}})
-            new_page = notion.pages.create(
-                parent={"page_id": notion_page_id},
-                properties={"title": {"title": [{"type": "text", "text": {"content": nom_projet}}]}},
-                children=children
-            )
-            page_id = new_page["id"]
-
-        # Ajouter le contenu avec en-tête de section horodaté
-        date_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
-        blocs_texte = [contenu[i:i+1800] for i in range(0, len(contenu), 1800)]
-        blocks_to_add = [
-            {"object": "block", "type": "heading_3",
-             "heading_3": {"rich_text": [{"type": "text", "text": {"content": f"{section_titre} — {date_str}"}}]}}
-        ]
-        for bloc in blocs_texte:
-            blocks_to_add.append({"object": "block", "type": "paragraph",
-                                   "paragraph": {"rich_text": [{"type": "text", "text": {"content": bloc}}]}})
-        blocks_to_add.append({"object": "block", "type": "divider", "divider": {}})
-        notion.blocks.children.append(page_id, children=blocks_to_add)
-
-        _mettre_a_jour_index_notion(nom_projet, page_id)
-        return f"✅ Notion sync → '{nom_projet}' [{section_titre}]"
+        notion.pages.retrieve(notion_page_id)
     except Exception as e:
-        return f"❌ Erreur Notion sync : {e}"
+        return f"❌ Notion connexion échouée (ID={notion_page_id}) : {e}"
+
+    # Cherche d'abord par ID mémorisé (évite un scan de liste à chaque appel)
+    try:
+        mem_ids = charger_memoire()
+        stored_id = mem_ids.get("projets_meta", {}).get(nom_projet, {}).get("_notion_page_id")
+        if stored_id:
+            try:
+                notion.pages.retrieve(stored_id)
+                page_id = stored_id
+            except Exception:
+                page_id = None
+                stored_id = None
+        else:
+            page_id = None
+        if not page_id:
+            page_id = _trouver_page_enfant(nom_projet)
+    except Exception as e:
+        return f"❌ Notion recherche page échouée : {e}"
+
+    if not page_id:
+        try:
+            m = charger_memoire()
+            if meta:
+                m.setdefault("projets_meta", {})[nom_projet] = meta
+            page_id = _creer_page_projet_structuree(
+                nom_projet, contenu, type_action, meta, date_courte
+            )
+            m.setdefault("projets_meta", {}).setdefault(nom_projet, {})["_notion_page_id"] = page_id
+            sauvegarder_memoire(m)
+        except Exception as e:
+            return f"❌ Notion création page '{nom_projet}' échouée : {e}"
+        try:
+            _mettre_a_jour_index_notion(nom_projet, page_id, meta)
+        except Exception as e:
+            print(f"[Notion index] Erreur non bloquante : {e}")
+        return f"✅ Notion → Page structurée créée pour '{nom_projet}'"
+
+    # Mémorise l'ID si pas encore fait
+    if not stored_id:
+        try:
+            m2 = charger_memoire()
+            m2.setdefault("projets_meta", {}).setdefault(nom_projet, {})["_notion_page_id"] = page_id
+            sauvegarder_memoire(m2)
+        except Exception:
+            pass
+
+    # Page existante → mise à jour intelligente de la section cible
+    try:
+        _mettre_a_jour_section_notion(page_id, section_titre, contenu or " ", date_str)
+    except Exception as e:
+        return f"❌ Notion update '{section_titre}' échoué : {e}"
+
+    if type_action != "historique":
+        try:
+            _mettre_a_jour_section_notion(
+                page_id, "📝 Historique",
+                f"{date_courte} — Mise à jour [{section_titre}]", None
+            )
+        except Exception:
+            pass
+
+    try:
+        _mettre_a_jour_progression(page_id)
+    except Exception:
+        pass
+
+    try:
+        _mettre_a_jour_index_notion(nom_projet, page_id, meta)
+    except Exception as e:
+        print(f"[Notion index] Erreur non bloquante : {e}")
+
+    return f"✅ Notion sync → '{nom_projet}' [{section_titre}]"
 
 
 # ── Agent Autonome 24/7 ───────────────────────────────────
@@ -928,15 +1276,11 @@ COMPETENCES SHOPIFY :
 - Planification d'un portfolio d'apps
 - Estimation réaliste des délais pour apps Shopify
 
-OUTILS NOTION DISPONIBLES :
-Quand l'utilisateur demande de sauvegarder, créer une page ou mettre dans Notion, tu DOIS obligatoirement inclure une de ces balises dans ta réponse :
-- Créer une page : <NOTION_CREATE_PAGE titre="Titre ici" contenu="Contenu complet ici"/>
-- Ajouter dans page principale : <NOTION_ADD_CONTENT titre="Titre section" contenu="Contenu ici"/>
+OUTIL NOTION DISPONIBLE :
+Quand l'utilisateur demande d'ajouter ou sauvegarder du contenu dans Notion, utilise cette balise pour l'injecter dans la page du projet actif :
+<NOTION_ADD_CONTENT titre="Titre de la section" contenu="Contenu complet ici"/>
 
-IMPORTANT : Tu dois TOUJOURS inclure la balise Notion quand on te demande de sauvegarder ou créer dans Notion. La balise doit contenir le vrai contenu, pas un placeholder.
-
-Exemple de réponse correcte quand on demande une page Notion pour un projet :
-<NOTION_CREATE_PAGE titre="Roadmap shopify-upsell-app" contenu="Phase 1 : Specs (2 semaines) - Définir les fonctionnalités - Créer les wireframes Phase 2 : Dev (6 semaines) - Développer le MVP - Intégrer API Shopify Phase 3 : Tests (2 semaines) Phase 4 : Publication App Store (1 semaine)"/>
+IMPORTANT : N'utilise JAMAIS <NOTION_CREATE_PAGE> — toute sauvegarde doit aller dans la page existante du projet via <NOTION_ADD_CONTENT>.
 
 Tu réponds toujours en français."""
     
@@ -1305,7 +1649,7 @@ Réponds UNIQUEMENT avec le mot clé, rien d'autre."""
     return agent_id if agent_id in list(AGENTS.keys()) + ["tous"] else "recherche"
 
 
-def appeler_agent(agent_id, message, contexte_memoire=""):
+def appeler_agent(agent_id, message, contexte_memoire="", nom_projet_ctx=None):
     agent = AGENTS[agent_id]
     system = agent["prompt"]
     # Injection automatique des connaissances Shopify
@@ -1385,15 +1729,36 @@ def appeler_agent(agent_id, message, contexte_memoire=""):
         import re
         match = re.search(r'<NOTION_CREATE_PAGE titre="([^"]+)" contenu="([^"]+)"/>', texte, re.DOTALL)
         if match:
-            resultat = notion_creer_page(match.group(1), match.group(2))
-            texte = texte.replace(match.group(0), f"\n{resultat}\n")
-            actions.append("notion_page_creee")
+            if nom_projet_ctx:
+                # Dans le contexte d'un projet : injecte dans la page existante au lieu de créer une orpheline
+                contenu_tag = match.group(2)
+                threading.Thread(
+                    target=notion_sync_projet,
+                    args=(nom_projet_ctx, "historique", contenu_tag),
+                    daemon=True,
+                ).start()
+                texte = texte.replace(match.group(0), "\n✅ Contenu ajouté dans le projet Notion\n")
+                actions.append("notion_sync_projet")
+            else:
+                resultat = notion_creer_page(match.group(1), match.group(2))
+                texte = texte.replace(match.group(0), f"\n{resultat}\n")
+                actions.append("notion_page_creee")
 
         match = re.search(r'<NOTION_ADD_CONTENT titre="([^"]+)" contenu="([^"]+)"/>', texte, re.DOTALL)
         if match:
-            resultat = notion_ajouter_contenu(match.group(1), match.group(2))
-            texte = texte.replace(match.group(0), f"\n{resultat}\n")
-            actions.append("notion_contenu_ajoute")
+            if nom_projet_ctx:
+                contenu_tag = match.group(2)
+                threading.Thread(
+                    target=notion_sync_projet,
+                    args=(nom_projet_ctx, "historique", contenu_tag),
+                    daemon=True,
+                ).start()
+                texte = texte.replace(match.group(0), "\n✅ Contenu ajouté dans le projet Notion\n")
+                actions.append("notion_sync_projet")
+            else:
+                resultat = notion_ajouter_contenu(match.group(1), match.group(2))
+                texte = texte.replace(match.group(0), f"\n{resultat}\n")
+                actions.append("notion_contenu_ajoute")
 
     # 📧 Agent Communication → envoi Gmail + sync Notion
     if agent_id == "communication":
@@ -1403,14 +1768,17 @@ def appeler_agent(agent_id, message, contexte_memoire=""):
             resultat = gmail_envoyer(match.group(1), match.group(2), match.group(3))
             texte = texte.replace(match.group(0), f"\n{resultat}\n")
             actions.append("gmail_envoye")
-            # Sync email dans Notion si un projet est actif
+            # Sync email dans Notion — priorise le projet du chat, sinon le dernier projet actif
             try:
-                memoire = charger_memoire()
-                if memoire.get("projets"):
-                    projet_actif = memoire["projets"][-1]
+                projet_cible = nom_projet_ctx
+                if not projet_cible:
+                    memoire_tmp = charger_memoire()
+                    if memoire_tmp.get("projets"):
+                        projet_cible = memoire_tmp["projets"][-1]
+                if projet_cible:
                     contenu_email = f"Sujet : {match.group(2)}\nDestinataire : {match.group(1)}\n\n{match.group(3)}"
                     threading.Thread(target=notion_sync_projet,
-                                     args=(projet_actif, "email", contenu_email), daemon=True).start()
+                                     args=(projet_cible, "email", contenu_email), daemon=True).start()
             except Exception:
                 pass
 
@@ -1599,7 +1967,19 @@ def extraire_infos_memoire(message, reponse, memoire):
 # ── Routes Flask ──────────────────────────────────────────
 @app.route("/")
 def index():
+    return send_from_directory(".", "projets.html")
+
+@app.route("/chat-libre")
+def chat_libre():
     return send_from_directory(".", "index.html")
+
+@app.route("/nouveau-projet")
+def nouveau_projet_page():
+    return send_from_directory(".", "nouveau-projet.html")
+
+@app.route("/projet/<path:nom_projet>")
+def projet_detail_page(nom_projet):
+    return send_from_directory(".", "projet.html")
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -1753,15 +2133,20 @@ def analyser_conversation():
     system_prompt = (
         "Tu es un expert en gestion de projet pour développeur d'extensions Shopify.\n"
         "Analyse cette conversation client et extrais de façon structurée :\n"
-        "- Besoin principal (en une phrase claire)\n"
-        "- Type d'extension demandée\n"
-        "- Fonctionnalités mentionnées (liste)\n"
-        "- Contraintes (délai, budget mentionné, contraintes techniques)\n"
-        "- Style visuel souhaité (si mentionné)\n"
-        "- Questions à clarifier avant de commencer\n"
-        "- Ton recommandé pour répondre au client\n"
+        "- client_nom : prénom (et nom si mentionné) de la personne qui passe la commande. "
+        "Cherche les formules de politesse, les signatures, ou la façon dont la personne se présente.\n"
+        "- nom_projet : titre COURT du projet, max 35 caractères, "
+        "format '[Prénom] — [fonctionnalité courte]', ex: 'Sophie — Badge stock faible'\n"
+        "- besoin : besoin principal en une phrase claire\n"
+        "- type_extension : type d'extension demandée\n"
+        "- fonctionnalites : liste des fonctionnalités mentionnées\n"
+        "- contraintes : objet avec les clés 'delai' (délai exact mentionné) et 'budget' (budget mentionné)\n"
+        "- style : style visuel souhaité (si mentionné)\n"
+        "- questions : questions à clarifier avant de commencer\n"
+        "- ton : ton recommandé pour répondre au client\n"
         "Retourne UNIQUEMENT un JSON valide avec ces clés :\n"
-        "besoin, type_extension, fonctionnalites[], contraintes{}, style, questions[], ton"
+        "client_nom, nom_projet, besoin, type_extension, fonctionnalites[], "
+        "contraintes{delai, budget}, style, questions[], ton"
     )
 
     reponse = client.chat.completions.create(
@@ -1795,6 +2180,8 @@ def analyser_conversation():
 
     compte_rendu = (
         f"📋 COMPTE-RENDU — {source.upper()}\n\n"
+        f"👤 CLIENT\n{analyse.get('client_nom','Non identifié')}\n\n"
+        f"📁 NOM PROJET\n{analyse.get('nom_projet','Non défini')}\n\n"
         f"🎯 BESOIN PRINCIPAL\n{analyse.get('besoin','Non identifié')}\n\n"
         f"🔧 TYPE D'EXTENSION\n{analyse.get('type_extension','Non précisé')}\n\n"
         f"⚙️ FONCTIONNALITÉS\n{li(analyse.get('fonctionnalites',[]))}\n\n"
@@ -1805,6 +2192,24 @@ def analyser_conversation():
     )
 
     return jsonify({"analyse": analyse, "compte_rendu": compte_rendu})
+
+
+def parser_delai_en_jours(texte):
+    """Convertit un délai textuel en nombre de jours. Retourne None si non parsable."""
+    if not texte or texte.strip() in ("—", ""):
+        return None
+    texte = texte.lower().strip()
+    m = re.search(r'(\d+(?:[.,]\d+)?)\s*(semaines?|jours?|mois)', texte)
+    if not m:
+        return None
+    val = float(m.group(1).replace(",", "."))
+    unite = m.group(2)
+    if "semaine" in unite:
+        return int(val * 7)
+    elif "mois" in unite:
+        return int(val * 30)
+    else:
+        return int(val)
 
 
 @app.route("/valider-conversation", methods=["POST"])
@@ -1868,7 +2273,48 @@ def valider_conversation():
             except Exception as e:
                 resultats[futures[fut]] = f"❌ Erreur : {e}"
 
-    nom_projet = besoin[:60] if besoin else "Projet client"
+    # ── Extraction des métadonnées projet ────────────────────
+    client_nom   = (analyse.get("client_nom") or "").strip()
+    contraintes  = analyse.get("contraintes") or {}
+
+    # Normalise la clé délai (le LLM peut utiliser délai/delai/deadline)
+    delai = (
+        contraintes.get("delai")
+        or contraintes.get("délai")
+        or contraintes.get("deadline")
+        or ""
+    )
+    delai = (delai or "—").strip() or "—"
+
+    budget = (
+        contraintes.get("budget")
+        or contraintes.get("Budget")
+        or "—"
+    )
+    budget = (budget or "—").strip() or "—"
+
+    # Calcul de la date de livraison estimée
+    jours = parser_delai_en_jours(delai)
+    if jours:
+        date_livraison = (
+            datetime.datetime.now() + datetime.timedelta(days=jours)
+        ).strftime("%d/%m/%Y")
+    else:
+        date_livraison = "—"
+
+    # Nom du projet court : "[Client] — [Type extension]"
+    nom_projet_llm = (analyse.get("nom_projet") or "").strip()
+    type_ext       = (analyse.get("type_extension") or "").strip()
+    if nom_projet_llm:
+        nom_projet = nom_projet_llm[:50]
+    elif client_nom and type_ext:
+        label = type_ext if len(type_ext) <= 28 else type_ext[:25].rsplit(" ", 1)[0]
+        nom_projet = f"{client_nom} — {label}"
+    elif client_nom:
+        nom_projet = client_nom
+    else:
+        nom_projet = (besoin[:50] if besoin else "Projet client")
+
     memoire    = charger_memoire()
     if nom_projet not in memoire["projets"]:
         memoire["projets"].append(nom_projet)
@@ -1878,15 +2324,33 @@ def valider_conversation():
         "message": f"Analyse conversation → {nom_projet}",
         "agent":   "Analyse Client"
     })
+    memoire.setdefault("projets_content", {})[nom_projet] = {
+        "brief":     besoin,
+        "roadmap":   resultats.get("projet", ""),
+        "specs":     resultats.get("dev", ""),
+        "marketing": resultats.get("marketing", ""),
+        "email":     resultats.get("communication", ""),
+    }
     sauvegarder_memoire(memoire)
 
     # Sync Notion en arrière-plan
     def _sync_notion_validation():
         try:
-            with ThreadPoolExecutor(max_workers=3) as ex_notion:
-                ex_notion.submit(notion_sync_projet, nom_projet, "brief",    besoin)
-                ex_notion.submit(notion_sync_projet, nom_projet, "roadmap",  resultats.get("projet", ""))
-                ex_notion.submit(notion_sync_projet, nom_projet, "specs",    resultats.get("dev", ""))
+            meta_projet = {
+                "client":         client_nom or "—",
+                "budget":         budget,
+                "delai":          delai,
+                "type_extension": type_ext or "—",
+                "date_livraison": date_livraison,
+            }
+            # Création de la page en premier (séquentiel pour éviter la race condition)
+            notion_sync_projet(nom_projet, "brief", besoin, meta_projet)
+            # Puis mise à jour des sections en parallèle
+            with ThreadPoolExecutor(max_workers=2) as ex_notion:
+                ex_notion.submit(notion_sync_projet, nom_projet, "roadmap",
+                                 resultats.get("projet", ""), meta_projet)
+                ex_notion.submit(notion_sync_projet, nom_projet, "specs",
+                                 resultats.get("dev", ""), meta_projet)
         except Exception:
             pass
     threading.Thread(target=_sync_notion_validation, daemon=True).start()
@@ -2094,6 +2558,171 @@ def agent_run(task_name):
         return jsonify({"ok": True, "statut": derniere.get("statut", "exécuté") if derniere else "exécuté"})
     except Exception as e:
         return jsonify({"erreur": str(e)}), 500
+
+
+# ── API Projets ───────────────────────────────────────────
+
+@app.route("/projets-data")
+def projets_data():
+    memoire    = charger_memoire()
+    meta_dict  = memoire.get("projets_meta", {})
+    phases_dict = memoire.get("phases", {})
+
+    seen, projets = set(), []
+    for p in reversed(memoire.get("projets", [])):
+        if not p or p == "null" or len(p.strip()) < 3:
+            continue
+        key = p.strip().lower()
+        if key not in seen:
+            seen.add(key)
+            projets.append(p.strip())
+    projets.reverse()
+
+    _phase_labels = ["Specs & Design", "Développement", "Tests", "Publication"]
+    result = []
+    for nom in projets:
+        meta    = meta_dict.get(nom, {})
+        phases  = phases_dict.get(nom, {})
+        checked = sum(1 for k in ["phase_1","phase_2","phase_3","phase_4"] if phases.get(k))
+        pct     = int(checked / 4 * 100)
+        phase_actuelle = f"Phase {checked+1} — {_phase_labels[checked]}" if checked < 4 else "Terminé"
+        result.append({
+            "nom": nom,
+            "client":         meta.get("client", "—"),
+            "budget":         meta.get("budget", "—"),
+            "delai":          meta.get("delai", "—"),
+            "type_extension": meta.get("type_extension", "—"),
+            "date_livraison": meta.get("date_livraison", "—"),
+            "phases":         phases,
+            "progression":    pct,
+            "phase_actuelle": phase_actuelle,
+            "has_meta":       bool(meta),
+        })
+    return jsonify(result)
+
+
+@app.route("/projet-data/<path:nom_projet>")
+def projet_data(nom_projet):
+    nom     = urllib.parse.unquote(nom_projet)
+    memoire = charger_memoire()
+    meta    = memoire.get("projets_meta", {}).get(nom, {})
+    content = memoire.get("projets_content", {}).get(nom, {})
+    if not content and notion:
+        content = _backfill_content_from_notion(nom)
+    phases  = memoire.get("phases", {}).get(nom, {})
+
+    _labels = [
+        "Phase 1 — Specs & Design",
+        "Phase 2 — Développement",
+        "Phase 3 — Tests",
+        "Phase 4 — Publication App Store",
+    ]
+    checked = sum(1 for k in ["phase_1","phase_2","phase_3","phase_4"] if phases.get(k))
+    pct     = int(checked / 4 * 100)
+    phase_actuelle = _labels[checked] if checked < 4 else "Projet terminé"
+
+    date_creation = None
+    for h in memoire.get("historique", []):
+        if nom in h.get("message", ""):
+            date_creation = h.get("date", "")[:10]
+            break
+
+    return jsonify({
+        "nom":           nom,
+        "meta":          meta,
+        "content":       content,
+        "phases":        phases,
+        "phase_labels":  _labels,
+        "progression":   pct,
+        "phase_actuelle": phase_actuelle,
+        "date_creation": date_creation,
+    })
+
+
+@app.route("/projet/<path:nom_projet>/phase", methods=["POST"])
+def toggle_projet_phase(nom_projet):
+    nom       = urllib.parse.unquote(nom_projet)
+    data      = request.json
+    phase_key = data.get("phase")
+    checked   = data.get("checked", False)
+    if not phase_key:
+        return jsonify({"erreur": "phase manquante"}), 400
+    memoire = charger_memoire()
+    memoire.setdefault("phases", {}).setdefault(nom, {})[phase_key] = checked
+    sauvegarder_memoire(memoire)
+    return jsonify({"ok": True})
+
+
+@app.route("/projet/<path:nom_projet>/chat", methods=["POST"])
+def projet_chat(nom_projet):
+    nom     = urllib.parse.unquote(nom_projet)
+    data    = request.json
+    message = data.get("message", "")
+    if not message:
+        return jsonify({"erreur": "message vide"}), 400
+
+    memoire = charger_memoire()
+    meta    = memoire.get("projets_meta", {}).get(nom, {})
+    content = memoire.get("projets_content", {}).get(nom, {})
+
+    contexte = (
+        f"CONTEXTE PROJET ACTIF : {nom}\n"
+        f"Client : {meta.get('client','—')}\n"
+        f"Type : {meta.get('type_extension','—')}\n"
+        f"Budget : {meta.get('budget','—')} · Délai : {meta.get('delai','—')}\n"
+    )
+    if content.get("brief"):
+        contexte += f"\nBrief : {content['brief'][:600]}"
+    if content.get("roadmap"):
+        contexte += f"\nRoadmap : {content['roadmap'][:400]}"
+
+    agent_id = choisir_agent(message)
+    if agent_id == "tous":
+        reponse   = appeler_tous_les_agents(message, contexte)
+        agent_nom = "Synthèse multi-agents"
+        actions   = []
+    else:
+        reponse, actions = appeler_agent(agent_id, message, contexte, nom_projet_ctx=nom)
+        agent_nom = AGENTS[agent_id]["nom"]
+
+    # Sauvegarde dans projets_content[nom]["historique"]
+    entree_hist = f"[{datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}] Q: {message}\nR ({agent_nom}): {reponse[:2000]}"
+    try:
+        mem = charger_memoire()
+        pc  = mem.setdefault("projets_content", {}).setdefault(nom, {})
+        ancien = pc.get("historique", "")
+        pc["historique"] = (ancien + "\n\n" + entree_hist).strip()
+        sauvegarder_memoire(mem)
+    except Exception:
+        pass
+
+    threading.Thread(
+        target=notion_sync_projet,
+        args=(nom, "historique", f"Q: {message}\nR ({agent_nom}): {reponse[:1500]}"),
+        daemon=True
+    ).start()
+
+    return jsonify({"reponse": reponse, "agent": agent_nom, "actions": actions})
+
+
+@app.route("/projet/<path:nom_projet>/notion-sync", methods=["POST"])
+def projet_notion_sync(nom_projet):
+    nom     = urllib.parse.unquote(nom_projet)
+    memoire = charger_memoire()
+    meta    = memoire.get("projets_meta", {}).get(nom, {})
+    content = memoire.get("projets_content", {}).get(nom, {})
+
+    resultats_sync = []
+    if content.get("brief"):
+        resultats_sync.append(notion_sync_projet(nom, "brief", content["brief"], meta))
+    if content.get("roadmap"):
+        resultats_sync.append(notion_sync_projet(nom, "roadmap", content["roadmap"], meta))
+    if content.get("specs"):
+        resultats_sync.append(notion_sync_projet(nom, "specs", content["specs"], meta))
+    if not resultats_sync:
+        resultats_sync.append(notion_sync_projet(nom, "historique", "Sync manuel", meta))
+
+    return jsonify({"ok": True, "resultats": resultats_sync})
 
 
 if __name__ == "__main__":
