@@ -6,58 +6,85 @@
   <title>Nouveau projet — Assistant IA</title>
   <style>
     *{margin:0;padding:0;box-sizing:border-box}
-    body{font-family:system-ui,sans-serif;background:#f5f5f5;min-height:100vh}
+    body{font-family:system-ui,sans-serif;background:#ecedef;min-height:100vh}
     .wrap{max-width:720px;margin:0 auto;padding:36px 20px}
 
     /* Header */
     .page-header{display:flex;align-items:center;gap:16px;margin-bottom:32px}
-    .btn-back{padding:9px 16px;background:white;color:#555;border:1px solid #ddd;border-radius:9px;font-size:13px;cursor:pointer;text-decoration:none;flex-shrink:0}
+    .btn-back{padding:9px 16px;background:white;color:#333;border:1.5px solid #ccc;border-radius:9px;font-size:13px;font-weight:500;cursor:pointer;text-decoration:none;flex-shrink:0}
     .btn-back:hover{background:#f0f0f0}
     .page-header h1{font-size:20px;font-weight:700;color:#111}
 
     /* Steps */
-    .steps{display:flex;gap:0;margin-bottom:28px;background:white;border-radius:12px;overflow:hidden;border:1px solid #eee}
-    .step{flex:1;padding:12px;text-align:center;font-size:12px;font-weight:600;color:#bbb;border-right:1px solid #eee;cursor:pointer;transition:all .15s}
+    .steps{display:flex;gap:0;margin-bottom:28px;background:white;border-radius:12px;overflow:hidden;border:1.5px solid #ccc}
+    .step{flex:1;padding:13px 8px;text-align:center;font-size:12px;font-weight:600;color:#888;border-right:1.5px solid #ccc;cursor:pointer;transition:all .15s;line-height:1.3}
     .step:last-child{border-right:none}
-    .step.active{color:#111;background:#f8f8f8}
-    .step.done{color:#15803d;background:#f0fdf4}
+    .step.active{color:#111;background:#efefef}
+    .step.done{color:#166534;background:#dcfce7;font-weight:700}
 
     /* Panel */
-    .panel{background:white;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.07);overflow:hidden;margin-bottom:20px}
+    .panel{background:white;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.09);border:1px solid #d0d0d0;overflow:hidden;margin-bottom:20px}
     .panel-body{padding:24px}
 
     /* Fields */
     .field{margin-bottom:16px}
-    .field label{display:block;font-size:11px;font-weight:700;color:#555;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
-    .field-hint{font-size:11px;color:#aaa;font-weight:400;text-transform:none;letter-spacing:0}
-    textarea,input[type=text],select{width:100%;padding:10px 14px;border:1px solid #ddd;border-radius:9px;font-size:14px;outline:none;font-family:inherit;transition:border .15s}
+    .field label{display:block;font-size:11px;font-weight:700;color:#444;margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+    .field-hint{font-size:11px;color:#777;font-weight:400;text-transform:none;letter-spacing:0}
+    textarea,input[type=text],select{width:100%;padding:11px 14px;border:1.5px solid #ccc;border-radius:9px;font-size:14px;outline:none;font-family:inherit;transition:border .15s;background:white}
     textarea{resize:vertical}
     textarea:focus,input[type=text]:focus{border-color:#111}
-    select{background:white;cursor:pointer}
+    select{cursor:pointer}
 
     /* Buttons */
-    .btn-green{width:100%;padding:12px;background:#10b981;color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s;margin-top:4px}
+    .btn-green{width:100%;padding:14px;background:#10b981;color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;transition:background .15s;margin-top:4px;min-height:48px}
     .btn-green:hover{background:#059669}
-    .btn-green:disabled{background:#ccc;cursor:not-allowed}
+    .btn-green:disabled{background:#bbb;cursor:not-allowed}
 
     /* Compte rendu editable */
     .cr-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    @media(max-width:600px){.cr-grid{grid-template-columns:1fr}}
     .cr-full{grid-column:1/-1}
 
     /* Livrables */
-    .livrable{border:1px solid #eee;border-radius:10px;overflow:hidden;margin-bottom:12px}
-    .livrable-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#f8f8f8;border-bottom:1px solid #eee}
-    .livrable-head span{font-size:13px;font-weight:600;color:#333}
-    .livrable-body{font-size:12px;color:#444;padding:14px;line-height:1.7;white-space:pre-wrap;max-height:200px;overflow-y:auto;font-family:inherit}
-    .btn-copy{padding:5px 12px;background:#f0f0f0;color:#333;border:none;border-radius:6px;font-size:12px;cursor:pointer}
-    .btn-copy:hover{background:#e0e0e0}
+    .livrable{border:1.5px solid #ccc;border-radius:10px;overflow:hidden;margin-bottom:12px}
+    .livrable-head{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:#efefef;border-bottom:1.5px solid #ccc}
+    .livrable-head span{font-size:13px;font-weight:600;color:#222}
+    .livrable-body{font-size:12px;color:#333;padding:14px;line-height:1.7;white-space:pre-wrap;max-height:200px;overflow-y:auto;font-family:inherit}
+    .btn-copy{padding:6px 12px;background:#e0e0e0;color:#222;border:none;border-radius:6px;font-size:12px;cursor:pointer;min-height:32px}
+    .btn-copy:hover{background:#ccc}
+
+    /* Progress steps */
+    .progress-steps{background:white;border:1px solid #d0d0d0;border-radius:12px;padding:20px 24px;margin-bottom:20px}
+    .progress-steps h3{font-size:13px;font-weight:700;color:#333;margin-bottom:14px}
+    .progress-track-wrap{height:6px;background:#e0e0e0;border-radius:4px;overflow:hidden;margin-bottom:16px}
+    .progress-track-fill{height:100%;background:#10b981;border-radius:4px;transition:width .4s ease}
+    .step-list{display:flex;flex-direction:column;gap:8px}
+    .step-row{display:flex;align-items:center;gap:10px;font-size:13px;color:#888}
+    .step-row.active{color:#111;font-weight:600}
+    .step-row.done{color:#166534}
+    .step-dot{width:18px;height:18px;border-radius:50%;background:#e0e0e0;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px}
+    .step-row.active .step-dot{background:#f59e0b;color:white}
+    .step-row.done .step-dot{background:#10b981;color:white}
 
     /* Result banner */
-    .success-banner{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:20px 24px;margin-bottom:20px;text-align:center}
-    .success-banner h2{font-size:16px;font-weight:700;color:#15803d;margin-bottom:10px}
-    .btn-primary{padding:12px 24px;background:#111;color:white;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;transition:background .15s}
+    .success-banner{background:#f0fdf4;border:1.5px solid #86efac;border-radius:12px;padding:20px 24px;margin-bottom:20px;text-align:center}
+    .success-banner h2{font-size:16px;font-weight:700;color:#166534;margin-bottom:10px}
+    .btn-primary{padding:13px 24px;background:#111;color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;transition:background .15s;min-height:48px}
     .btn-primary:hover{background:#333}
+
+    /* Mobile */
+    @media(max-width:600px){
+      .cr-grid{grid-template-columns:1fr}
+      .wrap{padding:20px 14px}
+      .panel-body{padding:18px 16px}
+      .step{font-size:11px;padding:12px 6px}
+      textarea,input[type=text],select{font-size:16px;padding:12px 13px}
+      .btn-green,.btn-primary{font-size:15px;padding:14px}
+      .livrable-body{font-size:13px}
+    }
+    @media(max-width:380px){
+      .page-header{gap:10px}
+      .page-header h1{font-size:17px}
+    }
   </style>
 </head>
 <body>
@@ -106,6 +133,17 @@
         <button class="btn-green" id="btnValider" onclick="valider()" style="margin-top:8px">
           ✅ Valider et lancer les 4 agents (~30s)
         </button>
+      </div>
+    </div>
+
+    <!-- Étape 2b : Progression agents (affiché pendant valider) -->
+    <div id="progressSteps" style="display:none">
+      <div class="progress-steps">
+        <h3>Génération en cours…</h3>
+        <div class="progress-track-wrap">
+          <div class="progress-track-fill" id="progressFill" style="width:0%"></div>
+        </div>
+        <div class="step-list" id="stepList"></div>
       </div>
     </div>
 
@@ -217,7 +255,32 @@
         </div>`
     }
 
-    // ── Étape 3 : Valider ─────────────────────────────────
+    // ── Étape 3 : Valider (4 appels séquentiels avec progression) ─────
+    const AGENTS_STEPS = [
+      { id:'projet',        label:'Roadmap projet',          resultKey:'roadmap' },
+      { id:'dev',           label:'Specs techniques',        resultKey:'specs' },
+      { id:'marketing',     label:'Brief design & App Store',resultKey:'brief_marketing' },
+      { id:'communication', label:'Email de confirmation',   resultKey:'email_client' },
+    ]
+
+    function afficherProgression(etapeIdx, statut) {
+      const fill   = document.getElementById('progressFill')
+      const list   = document.getElementById('stepList')
+      const pct    = Math.round((etapeIdx) / AGENTS_STEPS.length * 100)
+      fill.style.width = pct + '%'
+
+      list.innerHTML = AGENTS_STEPS.map((s, i) => {
+        let cls = ''
+        let dot = String(i + 1)
+        if (i < etapeIdx) { cls = 'done'; dot = '✓' }
+        else if (i === etapeIdx && statut === 'active') { cls = 'active'; dot = '…' }
+        return `<div class="step-row ${cls}">
+          <div class="step-dot">${dot}</div>
+          <span>${s.label}</span>
+        </div>`
+      }).join('')
+    }
+
     async function valider() {
       const g = id => document.getElementById(id)
       const editedAnalyse = {
@@ -236,26 +299,76 @@
       }
 
       const btn = g('btnValider')
-      btn.disabled = true; btn.textContent = '4 agents en parallèle… (~30s)'
+      btn.disabled = true
+      btn.textContent = 'Génération en cours…'
+
+      // Afficher le bloc de progression, cacher le panel compte-rendu
+      g('panel2').style.display = 'none'
+      g('progressSteps').style.display = 'block'
+      afficherProgression(0, 'active')
 
       try {
-        const res  = await fetch('/valider-conversation', {
+        // ① Init — calcule nom_projet et tasks côté serveur
+        const initRes = await fetch('/valider-conversation/init', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({ analyse: editedAnalyse })
         })
-        const data = await res.json()
-        if (data.erreur) { alert('Erreur : ' + data.erreur); return }
+        const initData = await initRes.json()
+        if (initData.erreur) throw new Error(initData.erreur)
+        const { nom_projet: nomP, tasks } = initData
+        nomProjet = nomP
 
-        nomProjet = data.projet
-        afficherResultats(data)
+        // ② Run chaque agent séquentiellement
+        const resultats = {}
+        for (let i = 0; i < AGENTS_STEPS.length; i++) {
+          const { id, resultKey } = AGENTS_STEPS[i]
+          afficherProgression(i, 'active')
+          const runRes = await fetch('/valider-conversation/run-agent', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ agent_id: id, message: tasks[id] })
+          })
+          const runData = await runRes.json()
+          if (runData.erreur) throw new Error(runData.erreur)
+          resultats[id] = runData.texte
+          afficherProgression(i + 1, 'active')
+        }
+
+        // ③ Save — persiste dans memoire.json et lance Notion en background
+        const saveRes = await fetch('/valider-conversation/save', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ analyse: editedAnalyse, resultats, nom_projet: nomP })
+        })
+        const saveData = await saveRes.json()
+        if (saveData.erreur) throw new Error(saveData.erreur)
+
+        // ④ Afficher les résultats
+        const displayData = {
+          roadmap:         resultats.projet        || '',
+          specs:           resultats.dev           || '',
+          brief_marketing: resultats.marketing     || '',
+          email_client:    resultats.communication || '',
+          projet:          nomP,
+        }
+        g('progressSteps').style.display = 'none'
+        afficherResultats(displayData)
         setDone(2)
         goStep(3)
-        g('panel2').style.display = 'none'
         document.getElementById('panel3').style.display = 'block'
-      } catch(e) { alert('Erreur : ' + e.message) }
 
-      btn.disabled = false; btn.textContent = '✅ Valider et lancer les 4 agents (~30s)'
+      } catch(e) {
+        g('progressSteps').style.display = 'none'
+        g('panel2').style.display = 'block'
+        alert('Erreur : ' + e.message)
+        btn.disabled = false
+        btn.textContent = '✅ Valider et lancer les 4 agents'
+        return
+      }
+
+      btn.disabled = false
+      btn.textContent = '✅ Valider et lancer les 4 agents'
     }
 
     function afficherResultats(data) {

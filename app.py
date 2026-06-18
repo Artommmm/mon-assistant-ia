@@ -3,7 +3,6 @@ from groq import Groq
 from tavily import TavilyClient
 from dotenv import load_dotenv
 import json, os, datetime, subprocess, tempfile, base64, urllib.parse, re, io, threading
-from concurrent.futures import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -1649,7 +1648,7 @@ Réponds UNIQUEMENT avec le mot clé, rien d'autre."""
     return agent_id if agent_id in list(AGENTS.keys()) + ["tous"] else "recherche"
 
 
-def appeler_agent(agent_id, message, contexte_memoire="", nom_projet_ctx=None):
+def appeler_agent(agent_id, message, contexte_memoire="", nom_projet_ctx=None, max_tokens=1500):
     agent = AGENTS[agent_id]
     system = agent["prompt"]
     # Injection automatique des connaissances Shopify
@@ -1670,7 +1669,8 @@ def appeler_agent(agent_id, message, contexte_memoire="", nom_projet_ctx=None):
         messages=[
             {"role": "system", "content": system},
             {"role": "user", "content": contenu_user}
-        ]
+        ],
+        max_tokens=max_tokens,
     )
     texte = reponse.choices[0].message.content
     actions = []
@@ -2212,16 +2212,11 @@ def parser_delai_en_jours(texte):
         return int(val)
 
 
-@app.route("/valider-conversation", methods=["POST"])
-def valider_conversation():
-    data    = request.json
-    analyse = data.get("analyse", {})
+# ── Helpers partagés validation ───────────────────────────
 
-    if not analyse:
-        return jsonify({"erreur": "Analyse manquante"}), 400
-
+def _construire_contexte_brief(analyse):
     besoin = analyse.get("besoin", "")
-    contexte = (
+    return besoin, (
         f"BRIEF CLIENT VALIDÉ :\n"
         f"Besoin : {besoin}\n"
         f"Type extension : {analyse.get('type_extension','')}\n"
@@ -2231,18 +2226,20 @@ def valider_conversation():
         f"Ton : {analyse.get('ton','')}"
     )
 
-    tasks = {
+def _construire_tasks(analyse, contexte):
+    ton = analyse.get("ton", "professionnel")
+    return {
         "projet": (
             f"Sur la base de ce brief client validé, génère une roadmap complète pour ce projet Shopify.\n\n"
             f"{contexte}\n\n"
             "Structure en phases (Specs / Dev / Tests / Publication) avec durées, tâches et priorités. "
-            "Sois précis et actionnable."
+            "Sois précis et actionnable. Limite ta réponse à l'essentiel."
         ),
         "dev": (
             f"Sur la base de ce brief client validé, génère les specs techniques complètes.\n\n"
             f"{contexte}\n\n"
             "Inclus : architecture, stack recommandé, API Shopify nécessaires, structure de fichiers, "
-            "points techniques complexes à anticiper."
+            "points techniques complexes à anticiper. Sois concis."
         ),
         "marketing": (
             f"Sur la base de ce brief client validé, génère le brief design et la fiche App Store.\n\n"
@@ -2254,57 +2251,27 @@ def valider_conversation():
             f"Sur la base de ce brief client validé, rédige l'email de confirmation professionnel au client.\n\n"
             f"{contexte}\n\n"
             f"L'email doit confirmer la compréhension du besoin, résumer les fonctionnalités retenues, "
-            f"proposer les prochaines étapes concrètes, et utiliser ce ton : {analyse.get('ton','professionnel')}."
+            f"proposer les prochaines étapes concrètes. Ton : {ton}."
         ),
     }
 
-    resultats = {}
-
-    def _appeler(agent_id, message):
-        texte, _ = appeler_agent(agent_id, message)
-        return agent_id, texte
-
-    with ThreadPoolExecutor(max_workers=4) as ex:
-        futures = {ex.submit(_appeler, aid, msg): aid for aid, msg in tasks.items()}
-        for fut in futures:
-            try:
-                aid, texte = fut.result(timeout=90)
-                resultats[aid] = texte
-            except Exception as e:
-                resultats[futures[fut]] = f"❌ Erreur : {e}"
-
-    # ── Extraction des métadonnées projet ────────────────────
-    client_nom   = (analyse.get("client_nom") or "").strip()
-    contraintes  = analyse.get("contraintes") or {}
-
-    # Normalise la clé délai (le LLM peut utiliser délai/delai/deadline)
+def _calculer_meta_projet(analyse, besoin):
+    client_nom  = (analyse.get("client_nom") or "").strip()
+    type_ext    = (analyse.get("type_extension") or "").strip()
+    contraintes = analyse.get("contraintes") or {}
     delai = (
-        contraintes.get("delai")
-        or contraintes.get("délai")
-        or contraintes.get("deadline")
-        or ""
+        contraintes.get("delai") or contraintes.get("délai")
+        or contraintes.get("deadline") or ""
     )
-    delai = (delai or "—").strip() or "—"
-
-    budget = (
-        contraintes.get("budget")
-        or contraintes.get("Budget")
-        or "—"
-    )
+    delai  = (delai or "—").strip() or "—"
+    budget = (contraintes.get("budget") or contraintes.get("Budget") or "—")
     budget = (budget or "—").strip() or "—"
-
-    # Calcul de la date de livraison estimée
-    jours = parser_delai_en_jours(delai)
-    if jours:
-        date_livraison = (
-            datetime.datetime.now() + datetime.timedelta(days=jours)
-        ).strftime("%d/%m/%Y")
-    else:
-        date_livraison = "—"
-
-    # Nom du projet court : "[Client] — [Type extension]"
+    jours  = parser_delai_en_jours(delai)
+    date_livraison = (
+        (datetime.datetime.now() + datetime.timedelta(days=jours)).strftime("%d/%m/%Y")
+        if jours else "—"
+    )
     nom_projet_llm = (analyse.get("nom_projet") or "").strip()
-    type_ext       = (analyse.get("type_extension") or "").strip()
     if nom_projet_llm:
         nom_projet = nom_projet_llm[:50]
     elif client_nom and type_ext:
@@ -2314,8 +2281,18 @@ def valider_conversation():
         nom_projet = client_nom
     else:
         nom_projet = (besoin[:50] if besoin else "Projet client")
+    return {
+        "nom_projet":     nom_projet,
+        "client_nom":     client_nom,
+        "type_ext":       type_ext,
+        "budget":         budget,
+        "delai":          delai,
+        "date_livraison": date_livraison,
+    }
 
-    memoire    = charger_memoire()
+def _sauvegarder_resultats_validation(analyse, resultats, nom_projet, meta):
+    besoin  = analyse.get("besoin", "")
+    memoire = charger_memoire()
     if nom_projet not in memoire["projets"]:
         memoire["projets"].append(nom_projet)
     memoire["decisions"].append(f"Brief validé : {nom_projet}")
@@ -2333,34 +2310,101 @@ def valider_conversation():
     }
     sauvegarder_memoire(memoire)
 
-    # Sync Notion en arrière-plan
-    def _sync_notion_validation():
+    meta_projet = {
+        "client":         meta["client_nom"] or "—",
+        "budget":         meta["budget"],
+        "delai":          meta["delai"],
+        "type_extension": meta["type_ext"] or "—",
+        "date_livraison": meta["date_livraison"],
+    }
+
+    def _sync_notion():
         try:
-            meta_projet = {
-                "client":         client_nom or "—",
-                "budget":         budget,
-                "delai":          delai,
-                "type_extension": type_ext or "—",
-                "date_livraison": date_livraison,
-            }
-            # Création de la page en premier (séquentiel pour éviter la race condition)
             notion_sync_projet(nom_projet, "brief", besoin, meta_projet)
-            # Puis mise à jour des sections en parallèle
-            with ThreadPoolExecutor(max_workers=2) as ex_notion:
-                ex_notion.submit(notion_sync_projet, nom_projet, "roadmap",
-                                 resultats.get("projet", ""), meta_projet)
-                ex_notion.submit(notion_sync_projet, nom_projet, "specs",
-                                 resultats.get("dev", ""), meta_projet)
+            notion_sync_projet(nom_projet, "roadmap", resultats.get("projet", ""), meta_projet)
+            notion_sync_projet(nom_projet, "specs",   resultats.get("dev", ""),    meta_projet)
         except Exception:
             pass
-    threading.Thread(target=_sync_notion_validation, daemon=True).start()
+    threading.Thread(target=_sync_notion, daemon=True).start()
+
+
+# ── Route 1 : initialise une validation (calcul nom_projet + tasks) ──
+
+@app.route("/valider-conversation/init", methods=["POST"])
+def valider_conversation_init():
+    data    = request.json or {}
+    analyse = data.get("analyse", {})
+    if not analyse:
+        return jsonify({"erreur": "Analyse manquante"}), 400
+    besoin, contexte = _construire_contexte_brief(analyse)
+    tasks            = _construire_tasks(analyse, contexte)
+    meta             = _calculer_meta_projet(analyse, besoin)
+    return jsonify({"nom_projet": meta["nom_projet"], "tasks": tasks})
+
+
+# ── Route 2 : exécute un seul agent (appelé 4 fois par le frontend) ──
+
+@app.route("/valider-conversation/run-agent", methods=["POST"])
+def valider_conversation_run_agent():
+    data     = request.json or {}
+    agent_id = data.get("agent_id", "")
+    message  = data.get("message", "")
+    if agent_id not in AGENTS or not message:
+        return jsonify({"erreur": "agent_id ou message manquant"}), 400
+    try:
+        texte, _ = appeler_agent(agent_id, message, max_tokens=1200)
+    except Exception as e:
+        texte = f"❌ Erreur agent {agent_id} : {e}"
+    return jsonify({"agent_id": agent_id, "texte": texte})
+
+
+# ── Route 3 : sauvegarde les 4 résultats dans memoire + Notion ──
+
+@app.route("/valider-conversation/save", methods=["POST"])
+def valider_conversation_save():
+    data       = request.json or {}
+    analyse    = data.get("analyse", {})
+    resultats  = data.get("resultats", {})
+    nom_projet = data.get("nom_projet", "")
+    if not analyse or not nom_projet:
+        return jsonify({"erreur": "Données manquantes"}), 400
+    besoin = analyse.get("besoin", "")
+    meta   = _calculer_meta_projet(analyse, besoin)
+    meta["nom_projet"] = nom_projet
+    _sauvegarder_resultats_validation(analyse, resultats, nom_projet, meta)
+    return jsonify({"projet": nom_projet, "ok": True})
+
+
+# ── Route legacy : conservée pour compatibilité, appels séquentiels ──
+
+@app.route("/valider-conversation", methods=["POST"])
+def valider_conversation():
+    data    = request.json or {}
+    analyse = data.get("analyse", {})
+    if not analyse:
+        return jsonify({"erreur": "Analyse manquante"}), 400
+
+    besoin, contexte = _construire_contexte_brief(analyse)
+    tasks            = _construire_tasks(analyse, contexte)
+
+    # Appels séquentiels — 1 thread, 1 appel API à la fois
+    resultats = {}
+    for agent_id, message in tasks.items():
+        try:
+            texte, _ = appeler_agent(agent_id, message, max_tokens=1200)
+            resultats[agent_id] = texte
+        except Exception as e:
+            resultats[agent_id] = f"❌ Erreur : {e}"
+
+    meta = _calculer_meta_projet(analyse, besoin)
+    _sauvegarder_resultats_validation(analyse, resultats, meta["nom_projet"], meta)
 
     return jsonify({
         "roadmap":         resultats.get("projet", ""),
         "specs":           resultats.get("dev", ""),
         "brief_marketing": resultats.get("marketing", ""),
         "email_client":    resultats.get("communication", ""),
-        "projet":          nom_projet
+        "projet":          meta["nom_projet"],
     })
 
 
