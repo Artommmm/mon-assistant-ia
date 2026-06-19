@@ -332,6 +332,10 @@
           const runData = await runRes.json()
           if (runData.erreur) throw new Error(runData.erreur)
           resultats[id] = runData.texte
+          if (id === 'communication') {
+            resultats.email_sujet = runData.email_sujet || ''
+            resultats.email_corps = runData.email_corps || ''
+          }
           afficherProgression(i + 1, 'active')
         }
 
@@ -350,6 +354,8 @@
           specs:           resultats.dev           || '',
           brief_marketing: resultats.marketing     || '',
           email_client:    resultats.communication || '',
+          email_sujet:     resultats.email_sujet   || '',
+          email_corps:     resultats.email_corps   || '',
           projet:          nomP,
         }
         g('progressSteps').style.display = 'none'
@@ -376,17 +382,14 @@
         { key:'roadmap',         label:'📅 Roadmap projet' },
         { key:'specs',           label:'⚙️ Specs techniques' },
         { key:'brief_marketing', label:'📣 Brief design & App Store' },
-        { key:'email_client',    label:'📧 Email de confirmation client' },
       ]
 
       // Success banner
-      const banner = document.getElementById('successBanner')
       document.getElementById('successNom').textContent = data.projet
-      const lien = document.getElementById('lienProjet')
-      lien.href = '/projet/' + encodeURIComponent(data.projet)
-      banner.style.display = 'block'
+      document.getElementById('lienProjet').href = '/projet/' + encodeURIComponent(data.projet)
+      document.getElementById('successBanner').style.display = 'block'
 
-      // Livrables
+      // Livrables texte
       let html = ''
       for (const s of sections) {
         html += `
@@ -398,6 +401,34 @@
             <pre class="livrable-body" id="livr_${s.key}">${esc(data[s.key]||'')}</pre>
           </div>`
       }
+
+      // Email livrable — formulaire interactif
+      html += `
+        <div class="livrable">
+          <div class="livrable-head">
+            <span>📧 Email de confirmation client</span>
+          </div>
+          <div style="padding:16px;display:flex;flex-direction:column;gap:12px">
+            <div class="field" style="margin:0">
+              <label>Destinataire</label>
+              <input type="text" id="email_dest" placeholder="email du client" value="">
+            </div>
+            <div class="field" style="margin:0">
+              <label>Sujet</label>
+              <input type="text" id="email_subj" value="${esc(data.email_sujet)}">
+            </div>
+            <div class="field" style="margin:0">
+              <label>Corps du message</label>
+              <textarea id="email_body" style="min-height:160px">${esc(data.email_corps)}</textarea>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn-primary" id="btnEnvoyerEmail" onclick="envoyerEmail()" style="flex:1;min-width:180px">📧 Envoyer cet email</button>
+              <button class="btn-copy" onclick="copierEmail()" style="flex-shrink:0">📋 Copier le texte</button>
+            </div>
+            <div id="email_status" style="font-size:12px;min-height:18px"></div>
+          </div>
+        </div>`
+
       document.getElementById('resultatsContent').innerHTML = html
     }
 
@@ -405,6 +436,58 @@
       navigator.clipboard.writeText(document.getElementById(id).textContent).then(() => {
         btn.textContent = '✅ Copié!'
         setTimeout(() => { btn.textContent = '📋 Copier' }, 2000)
+      })
+    }
+
+    async function envoyerEmail() {
+      const dest   = document.getElementById('email_dest').value.trim()
+      const sujet  = document.getElementById('email_subj').value.trim()
+      const corps  = document.getElementById('email_body').value.trim()
+      const status = document.getElementById('email_status')
+      const btn    = document.getElementById('btnEnvoyerEmail')
+
+      if (!dest) {
+        status.textContent = '⚠️ Renseigne le destinataire avant d\'envoyer'
+        status.style.color = '#b45309'
+        return
+      }
+
+      btn.disabled = true
+      btn.textContent = 'Envoi en cours…'
+      status.textContent = ''
+
+      try {
+        const res = await fetch('/envoyer-email-valide', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ destinataire: dest, sujet, corps })
+        })
+        const d = await res.json()
+        if (d.ok) {
+          status.textContent = '✅ ' + d.message
+          status.style.color = '#166534'
+          btn.textContent = '✅ Email envoyé'
+        } else {
+          status.textContent = '❌ ' + (d.erreur || d.message || 'Erreur inconnue')
+          status.style.color = '#b91c1c'
+          btn.disabled = false
+          btn.textContent = '📧 Envoyer cet email'
+        }
+      } catch(e) {
+        status.textContent = '❌ Erreur réseau : ' + e.message
+        status.style.color = '#b91c1c'
+        btn.disabled = false
+        btn.textContent = '📧 Envoyer cet email'
+      }
+    }
+
+    function copierEmail() {
+      const sujet = document.getElementById('email_subj').value
+      const corps = document.getElementById('email_body').value
+      navigator.clipboard.writeText('Sujet : ' + sujet + '\n\n' + corps).then(() => {
+        const btn = event.target
+        btn.textContent = '✅ Copié!'
+        setTimeout(() => { btn.textContent = '📋 Copier le texte' }, 2000)
       })
     }
   </script>

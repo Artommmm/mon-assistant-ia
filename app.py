@@ -1232,17 +1232,18 @@ COMPETENCES SHOPIFY :
 - Propositions commerciales pour développement d'apps custom
 - Communication de mise à jour / changelog d'app
 
-OUTIL GMAIL DISPONIBLE :
-Quand l'utilisateur demande d'envoyer un email, tu DOIS inclure cette balise dans ta réponse :
-<GMAIL_SEND destinataire="email@exemple.com" sujet="Sujet ici" corps="Corps complet de l'email ici"/>
+FORMAT DE SORTIE POUR LES EMAILS :
+Quand tu rédiges un email (que l'utilisateur demande d'en envoyer un ou qu'il faut confirmer un projet), structure TOUJOURS ta réponse ainsi :
+
+SUJET : [sujet de l'email ici]
+
+[corps complet de l'email, professionnel et complet, sans autre balise]
 
 IMPORTANT :
-- Inclus TOUJOURS la balise quand on demande d'envoyer un email
-- Le corps doit contenir le vrai texte de l'email, professionnel et complet
-- Si l'utilisateur ne donne pas d'adresse email destinataire, demande-la avant d'envoyer
-
-Exemple :
-<GMAIL_SEND destinataire="contact@boutique.fr" sujet="Proposition de développement app Shopify" corps="Bonjour, Je me permets de vous contacter car je développe des applications Shopify sur mesure..."/>
+- N'envoie JAMAIS l'email toi-même — rédige uniquement le texte
+- La première ligne doit toujours commencer par "SUJET : "
+- Le corps commence à la ligne suivant la ligne vide après le sujet
+- Si tu n'as pas l'adresse email du destinataire, mets un placeholder [email du client]
 
 OUTIL DEVIS DISPONIBLE :
 Quand l'utilisateur demande la génération d'un devis, tu DOIS inclure cette balise :
@@ -1760,15 +1761,22 @@ def appeler_agent(agent_id, message, contexte_memoire="", nom_projet_ctx=None, m
                 texte = texte.replace(match.group(0), f"\n{resultat}\n")
                 actions.append("notion_contenu_ajoute")
 
-    # 📧 Agent Communication → envoi Gmail + sync Notion
+    # 📧 Agent Communication → extrait <GMAIL_SEND> si présent mais NE l'envoie PAS
+    # L'envoi nécessite une validation humaine explicite via /envoyer-email-valide
     if agent_id == "communication":
         import re
         match = re.search(r'<GMAIL_SEND destinataire="([^"]+)" sujet="([^"]+)" corps="([^"]+)"/>', texte, re.DOTALL)
         if match:
-            resultat = gmail_envoyer(match.group(1), match.group(2), match.group(3))
-            texte = texte.replace(match.group(0), f"\n{resultat}\n")
-            actions.append("gmail_envoye")
-            # Sync email dans Notion — priorise le projet du chat, sinon le dernier projet actif
+            dest_tag  = match.group(1)
+            sujet_tag = match.group(2)
+            corps_tag = match.group(3)
+            # Remplace la balise par le texte structuré lisible (pas d'envoi)
+            texte = texte.replace(
+                match.group(0),
+                f"\nSUJET : {sujet_tag}\n\n{corps_tag}\n"
+            )
+            actions.append("email_redige")
+            # Sync dans Notion si contexte projet connu
             try:
                 projet_cible = nom_projet_ctx
                 if not projet_cible:
@@ -1776,7 +1784,7 @@ def appeler_agent(agent_id, message, contexte_memoire="", nom_projet_ctx=None, m
                     if memoire_tmp.get("projets"):
                         projet_cible = memoire_tmp["projets"][-1]
                 if projet_cible:
-                    contenu_email = f"Sujet : {match.group(2)}\nDestinataire : {match.group(1)}\n\n{match.group(3)}"
+                    contenu_email = f"Sujet : {sujet_tag}\nDestinataire : {dest_tag}\n\n{corps_tag}"
                     threading.Thread(target=notion_sync_projet,
                                      args=(projet_cible, "email", contenu_email), daemon=True).start()
             except Exception:
@@ -2342,6 +2350,23 @@ def valider_conversation_init():
     return jsonify({"nom_projet": meta["nom_projet"], "tasks": tasks})
 
 
+# ── Helpers email ────────────────────────────────────────
+
+def _parser_email_agent(texte):
+    """Extrait sujet et corps d'une réponse texte de l'agent Communication."""
+    import re
+    sujet = ""
+    corps = texte.strip()
+    m = re.search(r'^(?:SUJET|Sujet|Objet|Subject)\s*:\s*(.+)$', texte, re.MULTILINE)
+    if m:
+        sujet = m.group(1).strip()
+        idx   = texte.find(m.group(0))
+        rest  = texte[idx + len(m.group(0)):].strip()
+        rest  = re.sub(r'^(?:CORPS|Corps|Body)\s*:\s*', '', rest, flags=re.IGNORECASE).strip()
+        corps = rest
+    return sujet, corps
+
+
 # ── Route 2 : exécute un seul agent (appelé 4 fois par le frontend) ──
 
 @app.route("/valider-conversation/run-agent", methods=["POST"])
@@ -2355,7 +2380,37 @@ def valider_conversation_run_agent():
         texte, _ = appeler_agent(agent_id, message, max_tokens=1200)
     except Exception as e:
         texte = f"❌ Erreur agent {agent_id} : {e}"
-    return jsonify({"agent_id": agent_id, "texte": texte})
+
+    reponse = {"agent_id": agent_id, "texte": texte}
+    if agent_id == "communication":
+        sujet, corps = _parser_email_agent(texte)
+        reponse["email_sujet"] = sujet
+        reponse["email_corps"] = corps
+    return jsonify(reponse)
+
+
+# ── Route : envoi email avec validation humaine explicite ──
+
+@app.route("/envoyer-email-valide", methods=["POST"])
+def envoyer_email_valide():
+    import re as _re
+    data         = request.json or {}
+    destinataire = (data.get("destinataire") or "").strip()
+    sujet        = (data.get("sujet") or "").strip()
+    corps        = (data.get("corps") or "").strip()
+
+    if not destinataire or not sujet or not corps:
+        return jsonify({"ok": False, "erreur": "Destinataire, sujet et corps sont requis"}), 400
+
+    if not _re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$', destinataire):
+        return jsonify({"ok": False, "erreur": f"Adresse email invalide : {destinataire}"}), 400
+
+    try:
+        resultat = gmail_envoyer(destinataire, sujet, corps)
+        ok = resultat.startswith("✅")
+        return jsonify({"ok": ok, "message": resultat})
+    except Exception as e:
+        return jsonify({"ok": False, "erreur": f"Erreur lors de l'envoi : {e}"}), 500
 
 
 # ── Route 3 : sauvegarde les 4 résultats dans memoire + Notion ──
