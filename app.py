@@ -1149,6 +1149,16 @@ QUAND tu génères du code Shopify, tu fournis toujours :
 4. Les commandes d'installation
 5. Les variables d'environnement nécessaires
 
+STRUCTURE DE SORTIE OBLIGATOIRE POUR LES COMPOSANTS LIQUID :
+Quand tu génères un composant Liquid Shopify (section, snippet, widget…), structure TOUJOURS ta réponse avec ces 3 sections séparées par des titres Markdown :
+## CODE LIQUID
+[le code .liquid complet]
+## CODE CSS
+[le CSS associé, sans balise <style>]
+## SETTINGS SCHEMA
+[le JSON du bloc {% schema %} ou settings_schema.json]
+Cela permet de sauvegarder le composant dans la bibliothèque réutilisable.
+
 OUTILS GITHUB DISPONIBLES :
 Tu peux déclencher ces actions en utilisant ces balises dans ta réponse :
 - Créer un repo : <GITHUB_CREATE_REPO nom="nom-du-repo" description="description" prive="false"/>
@@ -1989,6 +1999,10 @@ def nouveau_projet_page():
 def projet_detail_page(nom_projet):
     return send_from_directory(".", "projet.html")
 
+@app.route("/bibliotheque")
+def bibliotheque_page():
+    return send_from_directory(".", "bibliotheque.html")
+
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.json
@@ -2822,6 +2836,157 @@ def projet_notion_sync(nom_projet):
         resultats_sync.append(notion_sync_projet(nom, "historique", "Sync manuel", meta))
 
     return jsonify({"ok": True, "resultats": resultats_sync})
+
+
+# ── Bibliothèque de composants Liquid ────────────────────
+
+BIBLIOTHEQUE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bibliotheque.json")
+_CATS_DEFAULT = ["inventory", "marketing", "ux", "checkout", "social-proof", "navigation"]
+
+def charger_bibliotheque():
+    if not os.path.exists(BIBLIOTHEQUE_PATH):
+        return {"composants": [], "categories": _CATS_DEFAULT}
+    with open(BIBLIOTHEQUE_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def sauvegarder_bibliotheque(data):
+    with open(BIBLIOTHEQUE_PATH, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+@app.route("/bibliotheque-data")
+def bibliotheque_data():
+    return jsonify(charger_bibliotheque())
+
+
+@app.route("/bibliotheque/ajouter", methods=["POST"])
+def bibliotheque_ajouter():
+    data  = request.json or {}
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    nom   = (data.get("nom") or "").strip()
+    if not nom:
+        return jsonify({"ok": False, "erreur": "Nom requis"}), 400
+    composant = {
+        "id":                  str(uuid.uuid4()),
+        "nom":                 nom,
+        "categorie":           (data.get("categorie") or "ux").strip(),
+        "description":         (data.get("description") or "").strip(),
+        "tags":                data.get("tags") or [],
+        "code_liquid":         (data.get("code_liquid") or "").strip(),
+        "code_css":            (data.get("code_css") or "").strip(),
+        "settings_schema":     (data.get("settings_schema") or "").strip(),
+        "projet_origine":      (data.get("projet_origine") or "").strip(),
+        "date_creation":       today,
+        "date_modif":          today,
+        "nb_utilisations":     0,
+        "preview_description": (data.get("preview_description") or "").strip(),
+    }
+    bib = charger_bibliotheque()
+    bib.setdefault("composants", []).append(composant)
+    sauvegarder_bibliotheque(bib)
+    return jsonify({"ok": True, "id": composant["id"]})
+
+
+@app.route("/bibliotheque/modifier/<composant_id>", methods=["PUT"])
+def bibliotheque_modifier(composant_id):
+    data = request.json or {}
+    bib  = charger_bibliotheque()
+    for c in bib.get("composants", []):
+        if c["id"] == composant_id:
+            for k in ["nom","categorie","description","tags","code_liquid","code_css",
+                      "settings_schema","projet_origine","preview_description"]:
+                if k in data:
+                    c[k] = data[k]
+            c["date_modif"] = datetime.datetime.now().strftime("%Y-%m-%d")
+            sauvegarder_bibliotheque(bib)
+            return jsonify({"ok": True})
+    return jsonify({"ok": False, "erreur": "Composant non trouvé"}), 404
+
+
+@app.route("/bibliotheque/supprimer/<composant_id>", methods=["DELETE"])
+def bibliotheque_supprimer(composant_id):
+    bib   = charger_bibliotheque()
+    avant = len(bib.get("composants", []))
+    bib["composants"] = [c for c in bib.get("composants", []) if c["id"] != composant_id]
+    if len(bib["composants"]) == avant:
+        return jsonify({"ok": False, "erreur": "Composant non trouvé"}), 404
+    sauvegarder_bibliotheque(bib)
+    return jsonify({"ok": True})
+
+
+@app.route("/bibliotheque/utiliser/<composant_id>", methods=["POST"])
+def bibliotheque_utiliser(composant_id):
+    data       = request.json or {}
+    nom_projet = (data.get("nom_projet") or "").strip()
+    bib        = charger_bibliotheque()
+    composant  = next((c for c in bib.get("composants", []) if c["id"] == composant_id), None)
+    if not composant:
+        return jsonify({"ok": False, "erreur": "Composant non trouvé"}), 404
+    composant["nb_utilisations"] = composant.get("nb_utilisations", 0) + 1
+    sauvegarder_bibliotheque(bib)
+    if nom_projet:
+        try:
+            mem = charger_memoire()
+            pc  = mem.setdefault("projets_content", {}).setdefault(nom_projet, {})
+            pc.setdefault("composants_utilises", []).append({
+                "id":   composant_id,
+                "nom":  composant["nom"],
+                "date": datetime.datetime.now().strftime("%Y-%m-%d"),
+            })
+            sauvegarder_memoire(mem)
+        except Exception:
+            pass
+    return jsonify({
+        "ok":              True,
+        "code_liquid":     composant.get("code_liquid", ""),
+        "code_css":        composant.get("code_css", ""),
+        "settings_schema": composant.get("settings_schema", ""),
+    })
+
+
+@app.route("/bibliotheque/generer-depuis-projet", methods=["POST"])
+def bibliotheque_generer_depuis_projet():
+    data           = request.json or {}
+    nom_projet     = (data.get("nom_projet") or "").strip()
+    type_composant = (data.get("type_composant") or "").strip()
+    if not type_composant:
+        return jsonify({"erreur": "type_composant est requis"}), 400
+
+    memoire = charger_memoire()
+    meta    = memoire.get("projets_meta", {}).get(nom_projet, {}) if nom_projet else {}
+    content = memoire.get("projets_content", {}).get(nom_projet, {}) if nom_projet else {}
+
+    contexte = f"PROJET : {nom_projet or 'non précisé'}\n" if nom_projet else ""
+    if meta.get("client"):       contexte += f"Client : {meta['client']}\n"
+    if meta.get("type_extension"): contexte += f"Type : {meta['type_extension']}\n"
+    if content.get("brief"):     contexte += f"\nBrief : {content['brief'][:800]}"
+    if content.get("specs"):     contexte += f"\nSpecs existantes : {content['specs'][:600]}"
+
+    message = (
+        f"{contexte}\n\n"
+        f"Génère un composant Liquid Shopify complet de type : {type_composant}\n"
+        f"Utilise les 3 sections ## CODE LIQUID / ## CODE CSS / ## SETTINGS SCHEMA"
+    )
+    try:
+        texte, _ = appeler_agent("dev", message, max_tokens=2000)
+    except Exception as e:
+        return jsonify({"erreur": f"Erreur agent : {e}"}), 500
+
+    def _section(titre):
+        m = re.search(rf'##\s*{titre}\s*\n(.*?)(?=\n##|\Z)', texte, re.DOTALL | re.IGNORECASE)
+        if not m:
+            return ""
+        s = m.group(1).strip()
+        s = re.sub(r'^```[\w]*\n?', '', s, flags=re.MULTILINE)
+        s = re.sub(r'```\s*$', '', s, flags=re.MULTILINE)
+        return s.strip()
+
+    return jsonify({
+        "texte_complet":   texte,
+        "code_liquid":     _section("CODE LIQUID"),
+        "code_css":        _section("CODE CSS"),
+        "settings_schema": _section("SETTINGS SCHEMA"),
+    })
 
 
 # ── Mini boîte mail projet ────────────────────────────────
