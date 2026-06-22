@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, send_from_directory, send_file
 from groq import Groq
 from tavily import TavilyClient
 from dotenv import load_dotenv
-import json, os, datetime, subprocess, tempfile, base64, urllib.parse, re, io, threading
+import json, os, datetime, subprocess, tempfile, base64, urllib.parse, re, io, threading, uuid
 from apscheduler.schedulers.background import BackgroundScheduler
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -2822,6 +2822,151 @@ def projet_notion_sync(nom_projet):
         resultats_sync.append(notion_sync_projet(nom, "historique", "Sync manuel", meta))
 
     return jsonify({"ok": True, "resultats": resultats_sync})
+
+
+# ── Mini boîte mail projet ────────────────────────────────
+
+def _charger_emails_projet(nom):
+    """Charge la liste emails d'un projet, avec migration auto depuis l'ancien format texte."""
+    memoire = charger_memoire()
+    content = memoire.get("projets_content", {}).get(nom, {})
+    if "email" in content and "emails" not in content:
+        old_email = content.pop("email", "")
+        content["emails"] = [{
+            "id":           str(uuid.uuid4()),
+            "sujet":        "Email de confirmation",
+            "corps":        old_email,
+            "destinataire": "",
+            "date":         datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            "statut":       "envoye",
+        }] if old_email else []
+        memoire.setdefault("projets_content", {})[nom] = content
+        sauvegarder_memoire(memoire)
+    return content.get("emails", [])
+
+
+def _sauvegarder_email_projet(nom, email_item):
+    """Ajoute un email dans la liste du projet (avec migration auto si nécessaire)."""
+    memoire = charger_memoire()
+    pc = memoire.setdefault("projets_content", {}).setdefault(nom, {})
+    if "email" in pc and "emails" not in pc:
+        old = pc.pop("email", "")
+        pc["emails"] = [{
+            "id": str(uuid.uuid4()), "sujet": "Email de confirmation",
+            "corps": old, "destinataire": "",
+            "date": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+            "statut": "envoye",
+        }] if old else []
+    pc.setdefault("emails", []).append(email_item)
+    sauvegarder_memoire(memoire)
+
+
+@app.route("/projet/<path:nom_projet>/emails", methods=["GET"])
+def projet_emails_liste(nom_projet):
+    nom = urllib.parse.unquote(nom_projet)
+    emails = _charger_emails_projet(nom)
+    return jsonify(emails)
+
+
+@app.route("/projet/<path:nom_projet>/emails/envoyer", methods=["POST"])
+def projet_emails_envoyer(nom_projet):
+    nom  = urllib.parse.unquote(nom_projet)
+    data = request.json or {}
+    dest  = (data.get("destinataire") or "").strip()
+    sujet = (data.get("sujet") or "").strip()
+    corps = (data.get("corps") or "").strip()
+
+    if not dest or not sujet or not corps:
+        return jsonify({"succes": False, "message": "Destinataire, sujet et corps sont requis"}), 400
+    if not re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$', dest):
+        return jsonify({"succes": False, "message": f"Adresse email invalide : {dest}"}), 400
+
+    try:
+        resultat = gmail_envoyer(dest, sujet, corps)
+    except Exception as e:
+        return jsonify({"succes": False, "message": f"Erreur Gmail : {e}"}), 500
+
+    if not resultat.startswith("✅"):
+        return jsonify({"succes": False, "message": resultat}), 500
+
+    email_item = {
+        "id":           str(uuid.uuid4()),
+        "sujet":        sujet,
+        "corps":        corps,
+        "destinataire": dest,
+        "date":         datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "statut":       "envoye",
+    }
+    _sauvegarder_email_projet(nom, email_item)
+    contenu_notion = f"📧 Envoyé à {dest}\nSujet : {sujet}\n\n{corps}"
+    threading.Thread(
+        target=notion_sync_projet,
+        args=(nom, "email", contenu_notion),
+        daemon=True
+    ).start()
+    return jsonify({"succes": True, "message": resultat})
+
+
+@app.route("/projet/<path:nom_projet>/emails/brouillon", methods=["POST"])
+def projet_emails_brouillon(nom_projet):
+    nom  = urllib.parse.unquote(nom_projet)
+    data = request.json or {}
+    email_item = {
+        "id":           str(uuid.uuid4()),
+        "sujet":        (data.get("sujet") or "(sans sujet)").strip(),
+        "corps":        (data.get("corps") or "").strip(),
+        "destinataire": (data.get("destinataire") or "").strip(),
+        "date":         datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
+        "statut":       "brouillon",
+    }
+    _sauvegarder_email_projet(nom, email_item)
+    return jsonify({"succes": True, "id_brouillon": email_item["id"]})
+
+
+@app.route("/projet/<path:nom_projet>/emails/recu", methods=["POST"])
+def projet_emails_recu(nom_projet):
+    nom  = urllib.parse.unquote(nom_projet)
+    data = request.json or {}
+    email_item = {
+        "id":           str(uuid.uuid4()),
+        "sujet":        (data.get("sujet") or "(sans sujet)").strip(),
+        "corps":        (data.get("corps") or "").strip(),
+        "destinataire": (data.get("expediteur") or "").strip(),
+        "date":         (data.get("date") or datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")).strip(),
+        "statut":       "recu",
+    }
+    _sauvegarder_email_projet(nom, email_item)
+    return jsonify({"succes": True})
+
+
+@app.route("/projet/<path:nom_projet>/emails/rediger-ia", methods=["POST"])
+def projet_emails_rediger_ia(nom_projet):
+    nom  = urllib.parse.unquote(nom_projet)
+    data = request.json or {}
+    contexte_utilisateur = (data.get("contexte") or "").strip()
+    if not contexte_utilisateur:
+        return jsonify({"erreur": "contexte manquant"}), 400
+
+    memoire = charger_memoire()
+    meta    = memoire.get("projets_meta", {}).get(nom, {})
+    content = memoire.get("projets_content", {}).get(nom, {})
+    contexte_projet = (
+        f"CONTEXTE PROJET : {nom}\n"
+        f"Client : {meta.get('client','—')}\n"
+        f"Type : {meta.get('type_extension','—')}\n"
+        f"Budget : {meta.get('budget','—')} · Délai : {meta.get('delai','—')}\n"
+    )
+    if content.get("brief"):
+        contexte_projet += f"\nBrief : {content['brief'][:600]}"
+
+    message = f"{contexte_projet}\n\nDemande : {contexte_utilisateur}"
+    try:
+        texte, _ = appeler_agent("communication", message, max_tokens=1200)
+    except Exception as e:
+        return jsonify({"erreur": f"Erreur agent : {e}"}), 500
+
+    sujet, corps = _parser_email_agent(texte)
+    return jsonify({"sujet": sujet, "corps": corps})
 
 
 if __name__ == "__main__":

@@ -81,6 +81,45 @@
     /* Utils */
     .loading{text-align:center;padding:60px;color:#888}
 
+    /* Email tab */
+    .email-tab-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+    .btn-sm-outline{padding:6px 12px;background:white;color:#333;border:1.5px solid #ccc;border-radius:7px;font-size:12px;cursor:pointer;font-weight:500}
+    .btn-sm-outline:hover{background:#f0f0f0}
+    .email-list{max-height:300px;overflow-y:auto;border:1.5px solid #d0d0d0;border-radius:10px;margin-bottom:14px}
+    .email-item{border-bottom:1px solid #e8e8e8;cursor:pointer;transition:background .1s}
+    .email-item:last-child{border-bottom:none}
+    .email-item:hover .email-item-row{background:#fafafa}
+    .email-item-row{display:flex;align-items:center;gap:10px;padding:10px 14px}
+    .email-badge{padding:2px 8px;border-radius:12px;font-size:11px;font-weight:700;flex-shrink:0;white-space:nowrap}
+    .badge-envoye{background:#dcfce7;color:#166534}
+    .badge-brouillon{background:#fef3c7;color:#92400e}
+    .badge-recu{background:#dbeafe;color:#1e40af}
+    .email-item-subj{font-size:13px;font-weight:600;color:#111;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .email-item-date{font-size:11px;color:#888;flex-shrink:0}
+    .email-item-preview{font-size:12px;color:#666;padding:0 14px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .email-item-body{display:none;padding:12px 14px;background:#f8f8f8;border-top:1px solid #e8e8e8;font-size:13px;color:#333;white-space:pre-wrap;line-height:1.6;word-break:break-word}
+    .email-item.open .email-item-body{display:block}
+    .email-compose{border:1.5px solid #d0d0d0;border-radius:10px;padding:16px;background:#fafafa;margin-top:4px}
+    .email-compose h3{font-size:11px;font-weight:700;color:#555;text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px}
+    .compose-field{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+    .compose-lbl{font-size:12px;font-weight:600;color:#555;width:64px;flex-shrink:0;text-align:right}
+    .compose-inp{flex:1;padding:8px 12px;border:1.5px solid #ccc;border-radius:8px;font-size:13px;font-family:inherit;outline:none;background:white;transition:border .15s}
+    .compose-inp:focus{border-color:#111}
+    textarea.compose-inp{resize:vertical}
+    .compose-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;padding-left:74px}
+    .btn-compose-ia{padding:8px 14px;background:white;color:#333;border:1.5px solid #ccc;border-radius:8px;font-size:12px;cursor:pointer;font-weight:500}
+    .btn-compose-ia:hover{background:#f0f0f0}
+    .btn-compose-ia:disabled{opacity:.5;cursor:not-allowed}
+    .btn-compose-draft{padding:8px 14px;background:white;color:#333;border:1.5px solid #ccc;border-radius:8px;font-size:12px;cursor:pointer;font-weight:500}
+    .btn-compose-draft:hover{background:#f0f0f0}
+    .btn-compose-send{padding:8px 18px;background:#111;color:white;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600}
+    .btn-compose-send:hover{background:#333}
+    .btn-compose-send:disabled{background:#bbb;cursor:not-allowed}
+    /* Modal */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+    .modal-box{background:white;border-radius:14px;padding:24px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+    .modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;font-size:14px;font-weight:700;color:#111}
+
     /* Mobile */
     @media(max-width:768px){
       .wrap{padding:16px 12px}
@@ -117,6 +156,68 @@
     const nomProjet = decodeURIComponent(window.location.pathname.replace(/^\/projet\//, ''))
     let projetData = null
 
+    // ── Template statique de l'onglet email ───────────────
+    function emailTabHTML() {
+      const today = new Date().toISOString().slice(0, 10)
+      return `
+        <div class="email-tab-hdr">
+          <span style="font-size:13px;font-weight:700;color:#333">💬 Communications</span>
+          <button class="btn-sm-outline" onclick="ouvrirModalRecu()">+ Ajouter mail reçu</button>
+        </div>
+        <div id="emailList" class="email-list">
+          <div style="color:#888;font-size:13px;padding:14px 16px">Chargement…</div>
+        </div>
+        <div class="email-compose">
+          <h3>Rédiger un email</h3>
+          <div class="compose-field">
+            <span class="compose-lbl">À :</span>
+            <input type="text" id="compDest" class="compose-inp" placeholder="email du client">
+          </div>
+          <div class="compose-field">
+            <span class="compose-lbl">Sujet :</span>
+            <input type="text" id="compSubj" class="compose-inp" placeholder="Objet de l'email">
+          </div>
+          <div class="compose-field" style="align-items:flex-start">
+            <span class="compose-lbl" style="padding-top:9px">Message :</span>
+            <textarea id="compBody" class="compose-inp" style="min-height:100px"></textarea>
+          </div>
+          <div class="compose-actions">
+            <button class="btn-compose-ia" id="btnIA" onclick="redigerIA()">🤖 Rédiger avec l'IA</button>
+            <button class="btn-compose-draft" onclick="sauvegarderBrouillon()">💾 Brouillon</button>
+            <button class="btn-compose-send" id="btnSend" onclick="envoyerEmailCompose()">📧 Envoyer</button>
+          </div>
+          <div id="compStatus" style="font-size:12px;min-height:18px;margin-top:6px;padding-left:74px"></div>
+        </div>
+        <div id="modalRecu" class="modal-overlay" style="display:none" onclick="if(event.target===this)fermerModalRecu()">
+          <div class="modal-box">
+            <div class="modal-header">
+              <span>📥 Ajouter un email reçu</span>
+              <button onclick="fermerModalRecu()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#666;line-height:1">✕</button>
+            </div>
+            <div class="compose-field">
+              <span class="compose-lbl">De :</span>
+              <input type="text" id="rcvFrom" class="compose-inp" placeholder="expediteur@example.com">
+            </div>
+            <div class="compose-field">
+              <span class="compose-lbl">Sujet :</span>
+              <input type="text" id="rcvSubj" class="compose-inp">
+            </div>
+            <div class="compose-field" style="align-items:flex-start">
+              <span class="compose-lbl" style="padding-top:9px">Message :</span>
+              <textarea id="rcvBody" class="compose-inp" style="min-height:80px;resize:vertical"></textarea>
+            </div>
+            <div class="compose-field">
+              <span class="compose-lbl">Date :</span>
+              <input type="date" id="rcvDate" class="compose-inp" value="${today}">
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;flex-wrap:wrap;gap:8px">
+              <div id="rcvStatus" style="font-size:12px"></div>
+              <button class="btn-compose-send" onclick="sauvegarderRecu()">Ajouter</button>
+            </div>
+          </div>
+        </div>`
+    }
+
     // ── Charger et afficher le projet ─────────────────────
     async function charger() {
       try {
@@ -135,12 +236,12 @@
       const c = p.content || {}
 
       const tabs = [
-        { id:'brief',    label:'📋 Brief',      text: c.brief },
-        { id:'specs',    label:'⚙️ Specs',       text: c.specs },
-        { id:'roadmap',  label:'🗺️ Roadmap',     text: c.roadmap },
-        { id:'email',    label:'📧 Email client', text: c.email },
-        { id:'marketing',label:'📣 Marketing',   text: c.marketing },
-        { id:'historique',label:'📝 Historique', text: null },
+        { id:'brief',    label:'📋 Brief',           text: c.brief },
+        { id:'specs',    label:'⚙️ Specs',            text: c.specs },
+        { id:'roadmap',  label:'🗺️ Roadmap',          text: c.roadmap },
+        { id:'email',    label:'💬 Communications',   custom: 'email' },
+        { id:'marketing',label:'📣 Marketing',        text: c.marketing },
+        { id:'historique',label:'📝 Historique',      text: null },
       ]
 
       const np = v => (!v || v === '—') ? 'Non précisé' : v
@@ -209,10 +310,12 @@
           </div>
           ${tabs.map((t,i) => `
             <div class="tab-content${i===0?' active':''}" id="tab-${t.id}">
-              ${t.text
-                ? `<div class="tab-text">${esc(t.text)}</div>`
-                : `<div class="tab-empty">Aucun contenu pour l'instant.</div>
-                   <div class="notion-hint">💡 Ce contenu est synchronisé dans Notion — utilise le bouton <strong>↑ Sync Notion</strong> pour le mettre à jour.</div>`}
+              ${t.custom === 'email'
+                ? emailTabHTML()
+                : t.text
+                  ? `<div class="tab-text">${esc(t.text)}</div>`
+                  : `<div class="tab-empty">Aucun contenu pour l'instant.</div>
+                     <div class="notion-hint">💡 Ce contenu est synchronisé dans Notion — utilise le bouton <strong>↑ Sync Notion</strong> pour le mettre à jour.</div>`}
             </div>`).join('')}
         </div>
 
@@ -242,6 +345,7 @@
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'))
       document.getElementById('tabBtn-' + id).classList.add('active')
       document.getElementById('tab-' + id).classList.add('active')
+      if (id === 'email') chargerEmails()
     }
 
     // ── Phases ────────────────────────────────────────────
@@ -339,6 +443,168 @@
         addMsg('assistant', 'Erreur de connexion.', null)
       }
       btn.disabled = false; input.focus()
+    }
+
+    // ── Email tab ─────────────────────────────────────────
+    async function chargerEmails() {
+      const list = document.getElementById('emailList')
+      if (!list) return
+      try {
+        const res    = await fetch('/projet/' + encodeURIComponent(nomProjet) + '/emails')
+        const emails = await res.json()
+        renderEmailList(emails)
+      } catch(e) {
+        const l = document.getElementById('emailList')
+        if (l) l.innerHTML = `<div style="color:#b91c1c;font-size:13px;padding:14px 16px">Erreur : ${esc(e.message)}</div>`
+      }
+    }
+
+    function renderEmailList(emails) {
+      const list = document.getElementById('emailList')
+      if (!list) return
+      if (!emails || emails.length === 0) {
+        list.innerHTML = '<div style="color:#888;font-size:13px;padding:14px 16px">Aucune communication pour l\'instant.</div>'
+        return
+      }
+      const badgeCls = { envoye:'badge-envoye', brouillon:'badge-brouillon', recu:'badge-recu' }
+      const badgeLbl = { envoye:'✓ Envoyé', brouillon:'📝 Brouillon', recu:'📥 Reçu' }
+      list.innerHTML = emails.slice().reverse().map((e, i) => {
+        const cls     = badgeCls[e.statut] || ''
+        const lbl     = badgeLbl[e.statut] || e.statut
+        const dateFmt = (e.date || '').slice(0, 10)
+        const preview = (e.corps || '').replace(/\n/g,' ').slice(0, 50) + ((e.corps||'').length > 50 ? '…' : '')
+        const who     = e.statut === 'recu'
+          ? `De : ${esc(e.destinataire || '')}`
+          : `À : ${esc(e.destinataire || '')}`
+        return `
+          <div class="email-item" id="eitem-${i}">
+            <div class="email-item-row" onclick="toggleEmailItem(${i})">
+              <span class="email-badge ${cls}">${lbl}</span>
+              <span class="email-item-subj">${esc(e.sujet || '(sans sujet)')}</span>
+              <span class="email-item-date">${dateFmt}</span>
+            </div>
+            <div class="email-item-preview">${esc(preview)}</div>
+            <div class="email-item-body">${e.destinataire ? `<div style="font-size:11px;color:#888;margin-bottom:8px">${who}</div>` : ''}${esc(e.corps || '')}</div>
+          </div>`
+      }).join('')
+    }
+
+    function toggleEmailItem(i) {
+      const el = document.getElementById('eitem-' + i)
+      if (el) el.classList.toggle('open')
+    }
+
+    async function envoyerEmailCompose() {
+      const dest   = (document.getElementById('compDest')?.value || '').trim()
+      const sujet  = (document.getElementById('compSubj')?.value || '').trim()
+      const corps  = (document.getElementById('compBody')?.value || '').trim()
+      const status = document.getElementById('compStatus')
+      const btn    = document.getElementById('btnSend')
+      if (!dest) { status.textContent = '⚠️ Renseigne le destinataire'; status.style.color = '#b45309'; return }
+      btn.disabled = true; btn.textContent = 'Envoi…'
+      status.textContent = ''
+      try {
+        const res = await fetch('/projet/' + encodeURIComponent(nomProjet) + '/emails/envoyer', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ destinataire: dest, sujet, corps })
+        })
+        const d = await res.json()
+        if (d.succes) {
+          status.textContent = '✅ Email envoyé !'
+          status.style.color = '#166534'
+          document.getElementById('compDest').value = ''
+          document.getElementById('compSubj').value = ''
+          document.getElementById('compBody').value = ''
+          chargerEmails()
+        } else {
+          status.textContent = '❌ ' + (d.message || 'Erreur inconnue')
+          status.style.color = '#b91c1c'
+        }
+      } catch(e) {
+        status.textContent = '❌ Erreur réseau : ' + e.message
+        status.style.color = '#b91c1c'
+      }
+      btn.disabled = false; btn.textContent = '📧 Envoyer'
+    }
+
+    async function sauvegarderBrouillon() {
+      const dest  = (document.getElementById('compDest')?.value || '').trim()
+      const sujet = (document.getElementById('compSubj')?.value || '').trim()
+      const corps = (document.getElementById('compBody')?.value || '').trim()
+      const status = document.getElementById('compStatus')
+      try {
+        const res = await fetch('/projet/' + encodeURIComponent(nomProjet) + '/emails/brouillon', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ destinataire: dest, sujet, corps })
+        })
+        const d = await res.json()
+        if (d.succes) {
+          status.textContent = '💾 Brouillon sauvegardé'
+          status.style.color = '#92400e'
+          chargerEmails()
+          setTimeout(() => { const s = document.getElementById('compStatus'); if(s) s.textContent = '' }, 3000)
+        }
+      } catch(e) {
+        status.textContent = '❌ ' + e.message; status.style.color = '#b91c1c'
+      }
+    }
+
+    async function redigerIA() {
+      const bodyEl   = document.getElementById('compBody')
+      const contexte = (bodyEl?.value || '').trim() ||
+                       `Rédige un email professionnel pour le client du projet ${nomProjet}`
+      const btn    = document.getElementById('btnIA')
+      const status = document.getElementById('compStatus')
+      btn.disabled = true; btn.textContent = '⏳ Génération…'
+      status.textContent = ''
+      try {
+        const res = await fetch('/projet/' + encodeURIComponent(nomProjet) + '/emails/rediger-ia', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ contexte })
+        })
+        const d = await res.json()
+        if (d.erreur) throw new Error(d.erreur)
+        if (d.sujet) document.getElementById('compSubj').value = d.sujet
+        if (d.corps) document.getElementById('compBody').value = d.corps
+        status.textContent = '🤖 Email rédigé — vérifiez avant d\'envoyer'
+        status.style.color = '#1e40af'
+      } catch(e) {
+        status.textContent = '❌ ' + e.message; status.style.color = '#b91c1c'
+      }
+      btn.disabled = false; btn.textContent = '🤖 Rédiger avec l\'IA'
+    }
+
+    function ouvrirModalRecu() {
+      const m = document.getElementById('modalRecu'); if (m) m.style.display = 'flex'
+    }
+    function fermerModalRecu() {
+      const m = document.getElementById('modalRecu'); if (m) m.style.display = 'none'
+    }
+
+    async function sauvegarderRecu() {
+      const expediteur = (document.getElementById('rcvFrom')?.value || '').trim()
+      const sujet      = (document.getElementById('rcvSubj')?.value || '').trim()
+      const corps      = (document.getElementById('rcvBody')?.value || '').trim()
+      const date       = (document.getElementById('rcvDate')?.value || '').trim()
+      const status     = document.getElementById('rcvStatus')
+      try {
+        const res = await fetch('/projet/' + encodeURIComponent(nomProjet) + '/emails/recu', {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ expediteur, sujet, corps, date })
+        })
+        const d = await res.json()
+        if (d.succes) {
+          fermerModalRecu()
+          chargerEmails()
+          ;['rcvFrom','rcvSubj','rcvBody'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.value = ''
+          })
+        } else {
+          status.textContent = '❌ Erreur lors de l\'ajout'; status.style.color = '#b91c1c'
+        }
+      } catch(e) {
+        status.textContent = '❌ ' + e.message; status.style.color = '#b91c1c'
+      }
     }
 
     charger()
